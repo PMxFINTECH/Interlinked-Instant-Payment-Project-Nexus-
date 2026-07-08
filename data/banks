@@ -1,0 +1,32 @@
+{
+  "SG": [
+    "DBS Bank", "OCBC Bank", "UOB",
+    "HSBC", "Citibank", "Standard Chartered",
+    "Maybank Singapore", "CIMB Singapore", "RHB Bank Singapore", "Bank of China (Singapore)"
+  ],
+  "MY": [
+    "Maybank", "CIMB Bank", "Public Bank",
+    "RHB Bank", "Hong Leong Bank", "AmBank",
+    "HSBC", "Standard Chartered", "Citibank", "UOB Malaysia"
+  ],
+  "TH": [
+    "Bangkok Bank", "Kasikornbank", "Siam Commercial Bank",
+    "Krung Thai Bank", "Bank of Ayudhya (Krungsri)", "TMBThanachart Bank",
+    "HSBC", "Standard Chartered", "Citibank", "UOB Thailand"
+  ],
+  "ID": [
+    "Bank Central Asia (BCA)", "Bank Mandiri", "Bank Rakyat Indonesia (BRI)",
+    "Bank Negara Indonesia (BNI)", "CIMB Niaga", "Bank Danamon",
+    "HSBC", "Standard Chartered", "Citibank", "UOB Indonesia"
+  ],
+  "PH": [
+    "BDO Unibank", "Bank of the Philippine Islands (BPI)", "Metrobank",
+    "Land Bank of the Philippines", "Philippine National Bank (PNB)", "Security Bank",
+    "HSBC", "Standard Chartered", "Citibank", "UnionBank"
+  ],
+  "VN": [
+    "Vietcombank", "Techcombank", "VietinBank",
+    "BIDV", "Asia Commercial Bank (ACB)", "Sacombank",
+    "HSBC", "Standard Chartered", "Citibank", "ANZ Vietnam"
+  ]
+}
