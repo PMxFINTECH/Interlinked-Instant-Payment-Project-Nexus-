@@ -1,0 +1,8 @@
+[
+  { "code": "SG", "name": "Singapore", "currency": "SGD" },
+  { "code": "MY", "name": "Malaysia", "currency": "MYR" },
+  { "code": "TH", "name": "Thailand", "currency": "THB" },
+  { "code": "ID", "name": "Indonesia", "currency": "IDR" },
+  { "code": "PH", "name": "Philippines", "currency": "PHP" },
+  { "code": "VN", "name": "Vietnam", "currency": "VND" }
+]
