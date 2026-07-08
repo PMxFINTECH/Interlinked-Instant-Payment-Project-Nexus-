@@ -1,0 +1,27 @@
+cross-border-payment-simulator/
+├── README.md
+├── .gitignore
+├── .env.example
+├── package.json
+│
+├── server.js                        (entry point — starts the app)
+│
+├── routes/
+│   └── payments.js                  (defines the POST /payment endpoint)
+│
+├── services/
+│   ├── proxyResolution.js           (alias → account lookup)
+│   ├── fxConversion.js              (currency conversion via rate API)
+│   ├── complianceCheck.js           (fake sanctions screening)
+│   └── messageTranslation.js        (builds the ISO 20022–style message)
+│
+├── data/
+│   ├── countries.json               (fictional countries + currencies)
+│   ├── banks.json                   (fictional banks per country)
+│   ├── merchants.json               (fictional recipient merchants)
+│   └── sanctionsList.json           (fake blocked-name list)
+│
+└── public/
+    ├── index.html                   (the form UI)
+    ├── style.css
+    └── app.js                       (frontend logic, calls the backend API)
