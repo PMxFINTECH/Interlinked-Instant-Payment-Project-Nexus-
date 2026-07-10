@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Nexus-Style IPS Interlinking Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div class="grid-texture" aria-hidden="true"></div>
+
+  <header class="page-header">
+    <p class="eyebrow">Mini Nexus-style IPS interlinking simulator</p>
+    <h1>Send a cross-border payment through a simulated instant-payment hub</h1>
+    <p class="subcopy">
+      Fictional countries, banks, and merchants — modeled after Project Nexus's approach to
+      interlinking domestic instant payment systems. Every submission runs through real
+      proxy resolution, live FX conversion, sanctions screening, and ISO 20022–inspired
+      message translation.
+    </p>
+  </header>
+
+  <main>
+    <form id="payment-form" class="hub-panel">
+      <div class="hub-column" data-role="sender">
+        <p class="column-label">Sender</p>
+
+        <label class="field">
+          <span>Full name</span>
+          <input type="text" id="senderName" name="senderName" placeholder="e.g. Alex Tan" required />
+        </label>
+
+        <label class="field">
+          <span>Country</span>
+          <select id="senderCountry" name="senderCountry" required>
+            <option value="" disabled selected>Select country</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Bank</span>
+          <select id="senderBank" name="senderBank" required disabled>
+            <option value="" disabled selected>Select country first</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Amount <span class="unit" id="senderCurrencyLabel">&nbsp;</span></span>
+          <input type="number" id="amount" name="amount" min="1" step="0.01" placeholder="0.00" required />
+        </label>
+      </div>
+
+      <div class="hub-divider" aria-hidden="true">
+        <span class="hub-node"></span>
+        <span class="hub-line"></span>
+        <span class="hub-node"></span>
+      </div>
+
+      <div class="hub-column" data-role="recipient">
+        <p class="column-label">Recipient</p>
+
+        <label class="field">
+          <span>Country</span>
+          <select id="recipientCountry" name="recipientCountry" required>
+            <option value="" disabled selected>Select country</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Merchant</span>
+          <select id="merchantName" name="merchantName" required disabled>
+            <option value="" disabled selected>Select country first</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="submit-row">
+        <button type="submit" id="submitBtn">Send payment →</button>
+        <p class="submit-hint" id="submitHint"></p>
+      </div>
+    </form>
+
+    <section id="trace" class="trace-panel" hidden>
+      <p class="column-label">Payment trace</p>
+
+      <svg id="rail" class="rail" viewBox="0 0 900 80" preserveAspectRatio="xMidYMid meet">
+        <line class="rail-track" x1="60" y1="40" x2="840" y2="40" />
+        <line id="rail-progress" class="rail-progress" x1="60" y1="40" x2="60" y2="40" />
+        <g class="rail-station" data-station="0" transform="translate(60,40)">
+          <circle r="9" />
+          <text y="34">Compliance</text>
+        </g>
+        <g class="rail-station" data-station="1" transform="translate(255,40)">
+          <circle r="9" />
+          <text y="34">Proxy resolution</text>
+        </g>
+        <g class="rail-station" data-station="2" transform="translate(450,40)">
+          <circle r="9" />
+          <text y="34">FX conversion</text>
+        </g>
+        <g class="rail-station" data-station="3" transform="translate(645,40)">
+          <circle r="9" />
+          <text y="34">Message translation</text>
+        </g>
+        <g class="rail-station" data-station="4" transform="translate(840,40)">
+          <circle r="9" />
+          <text y="34">Settled</text>
+        </g>
+      </svg>
+
+      <div id="stationCards" class="station-cards"></div>
+
+      <div id="messageBlock" class="message-block" hidden>
+        <button type="button" id="toggleMessage" class="text-toggle">Show ISO 20022–style message ▾</button>
+        <pre id="messageJson" class="message-json" hidden></pre>
+      </div>
+    </section>
+  </main>
+
+  <footer class="page-footer">
+    <p>Bank and merchant names are used for illustrative purposes only in a fictional demo. Not affiliated with or endorsed by any institution listed.</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
