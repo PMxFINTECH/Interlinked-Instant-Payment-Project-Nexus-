@@ -6,7 +6,8 @@ const senderCountrySelect = document.getElementById('senderCountry');
 const senderBankSelect = document.getElementById('senderBank');
 const senderCurrencyLabel = document.getElementById('senderCurrencyLabel');
 const recipientCountrySelect = document.getElementById('recipientCountry');
-const merchantSelect = document.getElementById('merchantName');
+const recipientPhoneInput = document.getElementById('recipientPhone');
+const recipientPhoneHint = document.getElementById('recipientPhoneHint');
 const form = document.getElementById('payment-form');
 const submitBtn = document.getElementById('submitBtn');
 const submitHint = document.getElementById('submitHint');
@@ -68,42 +69,87 @@ senderCountrySelect.addEventListener('change', async () => {
   }
 });
 
-recipientCountrySelect.addEventListener('change', async () => {
+recipientCountrySelect.addEventListener('change', () => {
   const code = recipientCountrySelect.value;
+  const country = state.countries.find((c) => c.code === code);
 
-  merchantSelect.disabled = true;
-  merchantSelect.innerHTML = '<option value="" disabled selected>Loading merchants…</option>';
+  recipientPhoneInput.value = '';
+  clearPhoneHint();
 
-  try {
-    const res = await fetch(`/api/merchants/${code}`);
-    const { local, sportsAndApparel, luxury } = await res.json();
-    merchantSelect.innerHTML = '<option value="" disabled selected>Select merchant</option>';
-    appendOptgroup(merchantSelect, 'Local merchants', local);
-    appendOptgroup(merchantSelect, 'Sports & apparel', sportsAndApparel);
-    if (luxury.length) appendOptgroup(merchantSelect, 'Luxury', luxury);
-    merchantSelect.disabled = false;
-  } catch (err) {
-    merchantSelect.innerHTML = '<option value="" disabled selected>Could not load merchants</option>';
+  if (!country) {
+    recipientPhoneInput.disabled = true;
+    recipientPhoneInput.placeholder = 'Select country first';
+    return;
   }
+
+  recipientPhoneInput.disabled = false;
+  recipientPhoneInput.placeholder = country.phoneExample;
 });
 
-function appendOptgroup(select, label, items) {
-  if (!items || !items.length) return;
-  const group = document.createElement('optgroup');
-  group.label = label;
-  items.forEach((name) => {
-    const opt = document.createElement('option');
-    opt.value = name;
-    opt.textContent = name;
-    group.appendChild(opt);
-  });
-  select.appendChild(group);
+// Validates the recipient phone number against the selected recipient
+// country's dial code + expected digit length. Mirrors the same check the
+// server re-runs in routes/payments.js, so the person gets instant feedback
+// here but the server never trusts this alone.
+function validateRecipientPhone() {
+  const code = recipientCountrySelect.value;
+  const country = state.countries.find((c) => c.code === code);
+  if (!country) return true; // nothing to validate yet — country not chosen
+
+  const value = recipientPhoneInput.value.trim();
+  if (!value) {
+    setPhoneHint(`Phone number is required, e.g. ${country.phoneExample}`);
+    return false;
+  }
+
+  const compact = value.replace(/[\s-]/g, '');
+
+  if (!compact.startsWith(country.dialCode)) {
+    setPhoneHint(`Phone number must start with ${country.dialCode} for ${country.name}, e.g. ${country.phoneExample}`);
+    return false;
+  }
+
+  const nationalNumber = compact.slice(country.dialCode.length);
+  if (!/^\d+$/.test(nationalNumber) || nationalNumber.length !== country.phoneDigits) {
+    setPhoneHint(`${country.name} numbers need ${country.phoneDigits} digits after ${country.dialCode}, e.g. ${country.phoneExample}`);
+    return false;
+  }
+
+  clearPhoneHint();
+  return true;
 }
+
+function setPhoneHint(message) {
+  recipientPhoneHint.textContent = message;
+  recipientPhoneHint.hidden = false;
+  recipientPhoneInput.classList.add('input-error');
+}
+
+function clearPhoneHint() {
+  recipientPhoneHint.textContent = '';
+  recipientPhoneHint.hidden = true;
+  recipientPhoneInput.classList.remove('input-error');
+}
+
+recipientPhoneInput.addEventListener('input', () => {
+  // Only show errors once the person has typed something worth checking —
+  // avoids flashing red on the very first keystroke.
+  if (recipientPhoneInput.value.trim().length > 0) validateRecipientPhone();
+});
+
+recipientPhoneInput.addEventListener('blur', validateRecipientPhone);
 
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
   submitHint.textContent = '';
   submitHint.classList.remove('error');
+
+  if (!validateRecipientPhone()) {
+    submitHint.textContent = 'Fix the recipient phone number before sending.';
+    submitHint.classList.add('error');
+    recipientPhoneInput.focus();
+    return;
+  }
+
   submitBtn.disabled = true;
   submitBtn.textContent = 'Sending…';
 
@@ -115,7 +161,7 @@ form.addEventListener('submit', async (e) => {
     senderBank: senderBankSelect.value,
     amount: document.getElementById('amount').value,
     recipientCountry: recipientCountrySelect.value,
-    merchantName: merchantSelect.value,
+    recipientPhone: recipientPhoneInput.value.trim(),
   };
 
   try {
@@ -206,6 +252,7 @@ async function runCompletedTrace(data) {
   await wait(500);
   lightStation(1);
   addStationCard(STATION_LABELS[1], [
+    ['Recipient:', data.recipient.recipientName],
     ['Bank:', data.recipient.bankName],
     ['Account:', data.recipient.accountId],
   ]);
