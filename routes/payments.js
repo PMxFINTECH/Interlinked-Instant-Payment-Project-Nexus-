@@ -10,11 +10,39 @@ const { buildPaymentMessage } = require('../services/messageTranslation');
 const router = express.Router();
 
 const countries = JSON.parse(fs.readFileSync(path.join(__dirname, '../data/countries.json'), 'utf-8'));
-const merchants = JSON.parse(fs.readFileSync(path.join(__dirname, '../data/merchants.json'), 'utf-8'));
 const banks = JSON.parse(fs.readFileSync(path.join(__dirname, '../data/banks.json'), 'utf-8'));
 
 function getCountry(code) {
   return countries.find((c) => c.code === code);
+}
+
+// Validates that a recipient phone number matches the destination country's
+// dial code and expected digit length. Mirrors the client-side check, but is
+// re-run server-side since client validation can always be bypassed.
+function validatePhoneNumber(phoneNumber, country) {
+  if (!phoneNumber || typeof phoneNumber !== 'string') {
+    return { valid: false, message: `Phone number is required, e.g. ${country.phoneExample}` };
+  }
+
+  const compact = phoneNumber.replace(/[\s-]/g, '');
+
+  if (!compact.startsWith(country.dialCode)) {
+    return {
+      valid: false,
+      message: `Phone number must start with ${country.dialCode} for ${country.name}, e.g. ${country.phoneExample}`,
+    };
+  }
+
+  const nationalNumber = compact.slice(country.dialCode.length);
+
+  if (!/^\d+$/.test(nationalNumber) || nationalNumber.length !== country.phoneDigits) {
+    return {
+      valid: false,
+      message: `${country.name} numbers need ${country.phoneDigits} digits after ${country.dialCode}, e.g. ${country.phoneExample}`,
+    };
+  }
+
+  return { valid: true, message: null };
 }
 
 // GET /api/countries — used to populate sender/recipient country selects
@@ -31,32 +59,12 @@ router.get('/banks/:countryCode', (req, res) => {
   res.json(countryBanks);
 });
 
-// GET /api/merchants/:countryCode — local + sports/apparel + luxury filtered by that country's luxuryOrigins
-router.get('/merchants/:countryCode', (req, res) => {
-  const country = getCountry(req.params.countryCode);
-  if (!country) {
-    return res.status(404).json({ error: `Unknown country code ${req.params.countryCode}` });
-  }
-
-  const local = merchants.local[req.params.countryCode] || [];
-  const sportsAndApparel = merchants.international.sports_and_apparel;
-  const luxury = merchants.international.luxury
-    .filter((item) => country.luxuryOrigins.includes(item.origin))
-    .map((item) => item.name);
-
-  res.json({
-    local,
-    sportsAndApparel,
-    luxury,
-  });
-});
-
 // POST /api/payment — the main orchestration flow
 router.post('/payment', async (req, res) => {
   try {
-    const { senderName, senderCountry, senderBank, amount, recipientCountry, merchantName } = req.body;
+    const { senderName, senderCountry, senderBank, amount, recipientCountry, recipientPhone } = req.body;
 
-    if (!senderName || !senderCountry || !senderBank || !amount || !recipientCountry || !merchantName) {
+    if (!senderName || !senderCountry || !senderBank || !amount || !recipientCountry || !recipientPhone) {
       return res.status(400).json({ error: 'Missing required fields.' });
     }
 
@@ -77,8 +85,16 @@ router.post('/payment', async (req, res) => {
       });
     }
 
-    // Step 2: Proxy resolution — merchant + destination country -> recipient bank account
-    const recipient = resolveRecipient(merchantName, recipientCountry);
+    // Step 1b: Recipient phone format check — re-validated server-side even
+    // though the frontend already checks this, since a client check alone
+    // can always be bypassed by anyone calling the API directly.
+    const phoneCheck = validatePhoneNumber(recipientPhone, recipientCountryObj);
+    if (!phoneCheck.valid) {
+      return res.status(400).json({ error: phoneCheck.message });
+    }
+
+    // Step 2: Proxy resolution — recipient phone (proxy ID) + destination country -> recipient bank account
+    const recipient = resolveRecipient(recipientPhone, recipientCountry);
 
     // Step 3: FX conversion
     const { rate, convertedAmount } = await convertAmount(
