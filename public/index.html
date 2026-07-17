@@ -17,9 +17,9 @@
     <p class="eyebrow">Mini Nexus-style IPS interlinking simulator</p>
     <h1>Send a cross-border payment through a simulated instant-payment hub</h1>
     <p class="subcopy">
-      Fictional countries, banks, and merchants — modeled after Project Nexus's approach to
-      interlinking domestic instant payment systems. Every submission runs through real
-      proxy resolution, live FX conversion, sanctions screening, and ISO 20022–inspired
+      Fictional countries, banks, and phone-number proxies — modeled after Project Nexus's
+      approach to interlinking domestic instant payment systems. Every submission runs through
+      real proxy resolution, live FX conversion, sanctions screening, and ISO 20022–inspired
       message translation.
     </p>
   </header>
@@ -71,10 +71,16 @@
         </label>
 
         <label class="field">
-          <span>Merchant</span>
-          <select id="merchantName" name="merchantName" required disabled>
-            <option value="" disabled selected>Select country first</option>
-          </select>
+          <span>Recipient phone number</span>
+          <input
+            type="tel"
+            id="recipientPhone"
+            name="recipientPhone"
+            placeholder="Select country first"
+            required
+            disabled
+          />
+          <p class="field-hint" id="recipientPhoneHint" hidden></p>
         </label>
       </div>
 
@@ -122,7 +128,7 @@
   </main>
 
   <footer class="page-footer">
-    <p>Bank and merchant names are used for illustrative purposes only in a fictional demo. Not affiliated with or endorsed by any institution listed.</p>
+    <p>Bank and recipient names are fictionally generated for illustrative purposes only in a demo. Not affiliated with or endorsed by any institution listed.</p>
   </footer>
 
   <script src="app.js"></script>
