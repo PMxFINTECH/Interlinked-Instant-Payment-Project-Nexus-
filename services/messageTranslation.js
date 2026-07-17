@@ -17,7 +17,7 @@ function buildPaymentMessage({
         settlementCcy: targetCurrency,
         settlementAmt: convertedAmount,
       },
-      Cdtr: { Nm: recipient.merchantName, Ctry: recipient.countryCode },
+      Cdtr: { Nm: recipient.recipientName, Ctry: recipient.countryCode },
       CdtrAgt: { FinInstnId: { Nm: recipient.bankName } },
       CdtrAcct: { Id: recipient.accountId },
     },
