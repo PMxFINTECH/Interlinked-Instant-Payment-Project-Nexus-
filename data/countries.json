@@ -1,8 +1,50 @@
 [
-  { "code": "SG", "name": "Singapore", "currency": "SGD" },
-  { "code": "MY", "name": "Malaysia", "currency": "MYR" },
-  { "code": "TH", "name": "Thailand", "currency": "THB" },
-  { "code": "ID", "name": "Indonesia", "currency": "IDR" },
-  { "code": "PH", "name": "Philippines", "currency": "PHP" },
-  { "code": "VN", "name": "Vietnam", "currency": "VND" }
+  {
+    "code": "SG",
+    "name": "Singapore",
+    "currency": "SGD",
+    "dialCode": "+65",
+    "phoneDigits": 8,
+    "phoneExample": "+65 8123 4567"
+  },
+  {
+    "code": "MY",
+    "name": "Malaysia",
+    "currency": "MYR",
+    "dialCode": "+60",
+    "phoneDigits": 9,
+    "phoneExample": "+60 12 345 6789"
+  },
+  {
+    "code": "TH",
+    "name": "Thailand",
+    "currency": "THB",
+    "dialCode": "+66",
+    "phoneDigits": 9,
+    "phoneExample": "+66 81 234 5678"
+  },
+  {
+    "code": "ID",
+    "name": "Indonesia",
+    "currency": "IDR",
+    "dialCode": "+62",
+    "phoneDigits": 10,
+    "phoneExample": "+62 812 3456 789"
+  },
+  {
+    "code": "PH",
+    "name": "Philippines",
+    "currency": "PHP",
+    "dialCode": "+63",
+    "phoneDigits": 10,
+    "phoneExample": "+63 917 123 4567"
+  },
+  {
+    "code": "VN",
+    "name": "Vietnam",
+    "currency": "VND",
+    "dialCode": "+84",
+    "phoneDigits": 9,
+    "phoneExample": "+84 91 234 5678"
+  }
 ]
