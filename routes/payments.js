@@ -16,6 +16,27 @@ function getCountry(code) {
   return countries.find((c) => c.code === code);
 }
 
+// Parses an amount that may arrive formatted for display, e.g. "SGD 1,234.56"
+// or "$1,234.56". Strips currency symbols/letters and thousands separators,
+// then validates the result is a finite, positive number.
+// Feature: Amount — supports the sender-facing "$" + "," formatted input.
+function parseAmount(rawAmount) {
+  if (rawAmount === undefined || rawAmount === null || rawAmount === '') {
+    return { valid: false, value: null, message: 'Amount is required.' };
+  }
+
+  const cleaned = String(rawAmount)
+    .replace(/[^0-9.\-]/g, ''); // strip currency symbols, currency codes, commas, spaces
+
+  const value = Number(cleaned);
+
+  if (!Number.isFinite(value) || value <= 0) {
+    return { valid: false, value: null, message: 'Amount must be a positive number.' };
+  }
+
+  return { valid: true, value, message: null };
+}
+
 // Validates that a recipient phone number matches the destination country's
 // dial code and expected digit length. Mirrors the client-side check, but is
 // re-run server-side since client validation can always be bypassed.
@@ -59,6 +80,66 @@ router.get('/banks/:countryCode', (req, res) => {
   res.json(countryBanks);
 });
 
+// GET /api/fx-quote/:fromCurrency/:toCurrency?amount=1000
+// Feature: FX Rate + Currency Conversion — lets the frontend fetch a live
+// rate as soon as both currencies are selected (call with no amount, or
+// amount=1), and a live converted amount as the sender types (call with the
+// actual amount). Does not touch compliance, proxy resolution, or messaging —
+// this is a read-only quote, not a payment.
+router.get('/fx-quote/:fromCurrency/:toCurrency', async (req, res) => {
+  try {
+    const { fromCurrency, toCurrency } = req.params;
+    const rawAmount = req.query.amount;
+
+    // Default to 1 so the endpoint doubles as a pure "what's the rate?" call
+    // when the sender hasn't entered an amount yet.
+    const amountCheck = rawAmount === undefined
+      ? { valid: true, value: 1 }
+      : parseAmount(rawAmount);
+
+    if (!amountCheck.valid) {
+      return res.status(400).json({ error: amountCheck.message });
+    }
+
+    const { rate, convertedAmount } = await convertAmount(amountCheck.value, fromCurrency, toCurrency);
+
+    res.json({
+      fromCurrency,
+      toCurrency,
+      rate,
+      amount: amountCheck.value,
+      convertedAmount,
+    });
+  } catch (err) {
+    console.error('FX quote error:', err);
+    res.status(500).json({ error: 'Could not fetch FX quote.', details: err.message });
+  }
+});
+
+// GET /api/recipient/:recipientCountry/:phone
+// Feature: Recipient + Recipient Phone Number — resolves and returns the
+// fictional recipient's name/bank as soon as a valid phone number is
+// entered, so the frontend can display it in the recipient column instead
+// of a generic "proxy resolved" message. Lightweight preview only — no
+// compliance screening, FX conversion, or message building happens here.
+router.get('/recipient/:recipientCountry/:phone', (req, res) => {
+  const { recipientCountry, phone } = req.params;
+
+  const recipientCountryObj = getCountry(recipientCountry);
+  if (!recipientCountryObj) {
+    return res.status(400).json({ error: 'Invalid recipient country code.' });
+  }
+
+  const phoneCheck = validatePhoneNumber(phone, recipientCountryObj);
+  if (!phoneCheck.valid) {
+    return res.status(400).json({ valid: false, error: phoneCheck.message });
+  }
+
+  const recipient = resolveRecipient(phone, recipientCountry);
+
+  res.json({ valid: true, recipient });
+});
+
 // POST /api/payment — the main orchestration flow
 router.post('/payment', async (req, res) => {
   try {
@@ -73,6 +154,13 @@ router.post('/payment', async (req, res) => {
 
     if (!senderCountryObj || !recipientCountryObj) {
       return res.status(400).json({ error: 'Invalid sender or recipient country code.' });
+    }
+
+    // Feature: Amount — defensively parse in case the frontend passes a
+    // display-formatted string (e.g. "SGD 1,234.56") instead of a raw number.
+    const amountCheck = parseAmount(amount);
+    if (!amountCheck.valid) {
+      return res.status(400).json({ error: amountCheck.message });
     }
 
     // Step 1: Compliance screening — mirrors how a real hub would block before doing any other work
@@ -98,7 +186,7 @@ router.post('/payment', async (req, res) => {
 
     // Step 3: FX conversion
     const { rate, convertedAmount } = await convertAmount(
-      Number(amount),
+      amountCheck.value,
       senderCountryObj.currency,
       recipientCountryObj.currency
     );
@@ -109,7 +197,7 @@ router.post('/payment', async (req, res) => {
       senderCountry,
       senderBank,
       senderCurrency: senderCountryObj.currency,
-      amount: Number(amount),
+      amount: amountCheck.value,
       recipient,
       targetCurrency: recipientCountryObj.currency,
       convertedAmount,
