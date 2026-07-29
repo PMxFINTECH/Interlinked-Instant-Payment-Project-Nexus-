@@ -61,6 +61,8 @@ async function init() {
     state.countries = await res.json();
     populateCountrySelect(senderCountrySelect, state.countries);
     populateCountrySelect(recipientCountrySelect, state.countries);
+    senderCountryDropdown.populate(state.countries);
+    recipientCountryDropdown.populate(state.countries);
   } catch (err) {
     submitHint.textContent = 'Could not load country list. Is the server running?';
     submitHint.classList.add('error');
@@ -79,6 +81,118 @@ function populateCountrySelect(select, countries) {
 function getCountryObj(code) {
   return state.countries.find((c) => c.code === code);
 }
+
+// ---------- Countries — flag rendering ----------
+// Feature: Countries — derives the flag emoji directly from each country's
+// ISO 3166-1 alpha-2 code (SG, MY, TH, ID, PH, VN) rather than fetching
+// external logo images, so there's no asset loading or licensing to manage.
+
+function countryCodeToFlagEmoji(code) {
+  if (!code || code.length !== 2) return '';
+  const codePoints = [...code.toUpperCase()].map((char) => 127397 + char.charCodeAt(0));
+  return String.fromCodePoint(...codePoints);
+}
+
+// Builds a fully custom, keyboard-accessible listbox over a hidden native
+// <select>. The native select stays the source of truth for .value and still
+// fires real 'change' events, so all existing logic that reads
+// senderCountrySelect.value / recipientCountrySelect.value or listens for
+// 'change' on those elements keeps working untouched.
+function setupCountryDropdown(containerId, selectEl) {
+  const container = document.getElementById(containerId);
+  const trigger = container.querySelector('.custom-select-trigger');
+  const triggerFlag = trigger.querySelector('.custom-select-flag');
+  const triggerLabel = trigger.querySelector('.custom-select-label');
+  const list = container.querySelector('.custom-select-list');
+
+  function close() {
+    list.hidden = true;
+    trigger.setAttribute('aria-expanded', 'false');
+  }
+
+  function open() {
+    list.hidden = false;
+    trigger.setAttribute('aria-expanded', 'true');
+    const active = list.querySelector('[aria-selected="true"]') || list.querySelector('li');
+    if (active) active.focus();
+  }
+
+  function toggle() {
+    if (list.hidden) open();
+    else close();
+  }
+
+  function selectCountry(country) {
+    selectEl.value = country.code;
+    triggerFlag.textContent = countryCodeToFlagEmoji(country.code);
+    triggerLabel.textContent = `${country.name} (${country.currency})`;
+    list.querySelectorAll('li').forEach((li) => {
+      li.setAttribute('aria-selected', li.dataset.code === country.code ? 'true' : 'false');
+    });
+    close();
+    trigger.focus();
+    selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  function populate(countries) {
+    list.innerHTML = '';
+    countries.forEach((country) => {
+      const li = document.createElement('li');
+      li.setAttribute('role', 'option');
+      li.setAttribute('tabindex', '-1');
+      li.setAttribute('aria-selected', 'false');
+      li.dataset.code = country.code;
+
+      const flagSpan = document.createElement('span');
+      flagSpan.className = 'custom-select-flag';
+      flagSpan.textContent = countryCodeToFlagEmoji(country.code);
+
+      const textSpan = document.createElement('span');
+      textSpan.textContent = `${country.name} (${country.currency})`;
+
+      li.appendChild(flagSpan);
+      li.appendChild(textSpan);
+
+      li.addEventListener('click', () => selectCountry(country));
+      li.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          selectCountry(country);
+        } else if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          if (li.nextElementSibling) li.nextElementSibling.focus();
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          if (li.previousElementSibling) li.previousElementSibling.focus();
+        } else if (e.key === 'Escape') {
+          close();
+          trigger.focus();
+        }
+      });
+
+      list.appendChild(li);
+    });
+  }
+
+  trigger.addEventListener('click', toggle);
+  trigger.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      open();
+    } else if (e.key === 'Escape') {
+      close();
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!container.contains(e.target)) close();
+  });
+
+  return { populate };
+}
+
+const senderCountryDropdown = setupCountryDropdown('senderCountryCustom', senderCountrySelect);
+const recipientCountryDropdown = setupCountryDropdown('recipientCountryCustom', recipientCountrySelect);
 
 // ---------- Debounce helper ----------
 
