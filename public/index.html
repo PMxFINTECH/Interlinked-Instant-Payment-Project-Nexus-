@@ -36,9 +36,17 @@
 
         <label class="field">
           <span>Country</span>
-          <select id="senderCountry" name="senderCountry" required>
-            <option value="" disabled selected>Select country</option>
-          </select>
+          <div class="custom-select" id="senderCountryCustom">
+            <select id="senderCountry" name="senderCountry" required class="native-select-hidden" aria-hidden="true" tabindex="-1">
+              <option value="" disabled selected>Select country</option>
+            </select>
+            <button type="button" class="custom-select-trigger" aria-haspopup="listbox" aria-expanded="false">
+              <span class="custom-select-flag"></span>
+              <span class="custom-select-label">Select country</span>
+              <span class="custom-select-caret">▾</span>
+            </button>
+            <ul class="custom-select-list" role="listbox" hidden></ul>
+          </div>
         </label>
 
         <label class="field">
@@ -83,9 +91,17 @@
 
         <label class="field">
           <span>Country</span>
-          <select id="recipientCountry" name="recipientCountry" required>
-            <option value="" disabled selected>Select country</option>
-          </select>
+          <div class="custom-select" id="recipientCountryCustom">
+            <select id="recipientCountry" name="recipientCountry" required class="native-select-hidden" aria-hidden="true" tabindex="-1">
+              <option value="" disabled selected>Select country</option>
+            </select>
+            <button type="button" class="custom-select-trigger" aria-haspopup="listbox" aria-expanded="false">
+              <span class="custom-select-flag"></span>
+              <span class="custom-select-label">Select country</span>
+              <span class="custom-select-caret">▾</span>
+            </button>
+            <ul class="custom-select-list" role="listbox" hidden></ul>
+          </div>
         </label>
 
         <label class="field">
