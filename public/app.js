@@ -2,12 +2,43 @@ const state = {
   countries: [],
 };
 
+// Feature: Amount — symbols shown to the sender/recipient. Currency codes
+// match countries.json (SGD, MYR, THB, IDR, PHP, VND).
+const CURRENCY_SYMBOLS = {
+  SGD: 'S$',
+  MYR: 'RM',
+  THB: '฿',
+  IDR: 'Rp',
+  PHP: '₱',
+  VND: '₫',
+};
+
+// Feature: Amount / Currency Conversion — IDR and VND are conventionally
+// displayed with no decimal places; the rest use 2.
+const CURRENCY_DECIMALS = {
+  SGD: 2,
+  MYR: 2,
+  THB: 2,
+  IDR: 0,
+  PHP: 2,
+  VND: 0,
+};
+
 const senderCountrySelect = document.getElementById('senderCountry');
 const senderBankSelect = document.getElementById('senderBank');
-const senderCurrencyLabel = document.getElementById('senderCurrencyLabel');
+const senderCurrencyPrefix = document.getElementById('senderCurrencyPrefix');
+const amountInput = document.getElementById('amount');
+const fxRateLine = document.getElementById('fxRateLine');
+const convertedAmountWrapper = document.getElementById('convertedAmountWrapper');
+const convertedAmountInput = document.getElementById('convertedAmount');
+
 const recipientCountrySelect = document.getElementById('recipientCountry');
 const recipientPhoneInput = document.getElementById('recipientPhone');
 const recipientPhoneHint = document.getElementById('recipientPhoneHint');
+const recipientPreview = document.getElementById('recipientPreview');
+const recipientPreviewName = document.getElementById('recipientPreviewName');
+const recipientPreviewBank = document.getElementById('recipientPreviewBank');
+
 const form = document.getElementById('payment-form');
 const submitBtn = document.getElementById('submitBtn');
 const submitHint = document.getElementById('submitHint');
@@ -45,10 +76,130 @@ function populateCountrySelect(select, countries) {
   });
 }
 
+function getCountryObj(code) {
+  return state.countries.find((c) => c.code === code);
+}
+
+// ---------- Debounce helper ----------
+
+function debounce(fn, delay) {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), delay);
+  };
+}
+
+// ---------- Amount formatting (box 1) ----------
+// Feature: Amount — live thousands-separator formatting as the sender types,
+// keeping a clean numeric value available underneath for calculations/submit.
+
+function formatAmountInputValue(raw) {
+  let cleaned = raw.replace(/[^\d.]/g, '');
+
+  const firstDot = cleaned.indexOf('.');
+  if (firstDot !== -1) {
+    cleaned = cleaned.slice(0, firstDot + 1) + cleaned.slice(firstDot + 1).replace(/\./g, '');
+  }
+
+  const [intPart, decPart] = cleaned.split('.');
+  const intWithCommas = intPart ? Number(intPart).toLocaleString('en-US') : '';
+
+  if (decPart !== undefined) {
+    return `${intWithCommas}.${decPart.slice(0, 2)}`;
+  }
+  return intWithCommas;
+}
+
+function getRawAmountValue() {
+  const numeric = Number(amountInput.value.replace(/,/g, ''));
+  return Number.isFinite(numeric) ? numeric : 0;
+}
+
+function formatCurrency(value, currencyCode) {
+  const symbol = CURRENCY_SYMBOLS[currencyCode] || currencyCode;
+  const decimals = CURRENCY_DECIMALS[currencyCode] ?? 2;
+  const number = Number(value);
+  if (!Number.isFinite(number)) return '';
+  const formatted = number.toLocaleString('en-US', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+  return `${symbol} ${formatted}`;
+}
+
+function formatRate(rate) {
+  return Number(rate).toLocaleString('en-US', { maximumFractionDigits: 4 });
+}
+
+amountInput.addEventListener('input', () => {
+  amountInput.value = formatAmountInputValue(amountInput.value);
+  debouncedUpdateConvertedAmount();
+});
+
+// ---------- FX Rate + Currency Conversion (box 2) ----------
+// Feature: FX Rate — shows "1 SGD = X IDR" as soon as both currencies are known.
+// Feature: Currency Conversion — shows the live converted amount as the
+// sender types into box 1. Both pull from GET /api/fx-quote/:from/:to.
+
+async function updateFxRate() {
+  const sender = getCountryObj(senderCountrySelect.value);
+  const recipient = getCountryObj(recipientCountrySelect.value);
+
+  if (!sender || !recipient) {
+    fxRateLine.hidden = true;
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/fx-quote/${sender.currency}/${recipient.currency}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'FX quote failed');
+
+    fxRateLine.textContent = `1 ${sender.currency} = ${formatRate(data.rate)} ${recipient.currency}`;
+    fxRateLine.hidden = false;
+  } catch (err) {
+    fxRateLine.hidden = true;
+  }
+}
+
+async function updateConvertedAmount() {
+  const sender = getCountryObj(senderCountrySelect.value);
+  const recipient = getCountryObj(recipientCountrySelect.value);
+  const rawAmount = getRawAmountValue();
+
+  if (!sender || !recipient || !rawAmount || rawAmount <= 0) {
+    convertedAmountWrapper.hidden = true;
+    convertedAmountInput.value = '';
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/fx-quote/${sender.currency}/${recipient.currency}?amount=${rawAmount}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'FX quote failed');
+
+    convertedAmountInput.value = formatCurrency(data.convertedAmount, recipient.currency);
+    convertedAmountWrapper.hidden = false;
+  } catch (err) {
+    convertedAmountWrapper.hidden = true;
+    convertedAmountInput.value = '';
+  }
+}
+
+const debouncedUpdateConvertedAmount = debounce(updateConvertedAmount, 300);
+
+function refreshFxDisplays() {
+  updateFxRate();
+  updateConvertedAmount();
+}
+
+// ---------- Sender country / bank ----------
+
 senderCountrySelect.addEventListener('change', async () => {
   const code = senderCountrySelect.value;
-  const country = state.countries.find((c) => c.code === code);
-  senderCurrencyLabel.textContent = country ? `(${country.currency})` : '';
+  const country = getCountryObj(code);
+  senderCurrencyPrefix.textContent = country ? (CURRENCY_SYMBOLS[country.currency] || country.currency) : '—';
 
   senderBankSelect.disabled = true;
   senderBankSelect.innerHTML = '<option value="" disabled selected>Loading banks…</option>';
@@ -67,23 +218,78 @@ senderCountrySelect.addEventListener('change', async () => {
   } catch (err) {
     senderBankSelect.innerHTML = '<option value="" disabled selected>Could not load banks</option>';
   }
+
+  refreshFxDisplays();
 });
+
+// ---------- Recipient phone masking ----------
+// Feature: Recipient Phone Number — auto-inserts spaces as the person types,
+// mirroring each country's phoneExample layout so it works for any country
+// without needing extra formatting data.
+
+function getPhoneFormat(country) {
+  const dialDigits = country.dialCode.replace(/\D/g, '');
+  const cleanExample = country.phoneExample.replace(/[^\d\s]/g, '').trim();
+  const tokens = cleanExample.split(/\s+/).filter(Boolean);
+  let groupSizes = tokens.slice(1).map((t) => t.length);
+
+  if (groupSizes.length === 0) {
+    groupSizes = [country.phoneDigits];
+  }
+
+  return { dialDigits, groupSizes };
+}
+
+function formatPhoneValue(digitsAfterDial, dialDigits, groupSizes) {
+  let result = `+${dialDigits}`;
+  let idx = 0;
+
+  for (const size of groupSizes) {
+    const chunk = digitsAfterDial.slice(idx, idx + size);
+    if (chunk.length === 0) break;
+    result += ` ${chunk}`;
+    idx += size;
+  }
+
+  return result;
+}
+
+function applyPhoneMask() {
+  const country = getCountryObj(recipientCountrySelect.value);
+  if (!country) return;
+
+  const { dialDigits, groupSizes } = getPhoneFormat(country);
+  let digits = recipientPhoneInput.value.replace(/\D/g, '');
+
+  if (digits.startsWith(dialDigits)) {
+    digits = digits.slice(dialDigits.length);
+  }
+
+  digits = digits.slice(0, country.phoneDigits);
+  recipientPhoneInput.value = formatPhoneValue(digits, dialDigits, groupSizes);
+}
 
 recipientCountrySelect.addEventListener('change', () => {
   const code = recipientCountrySelect.value;
-  const country = state.countries.find((c) => c.code === code);
+  const country = getCountryObj(code);
 
-  recipientPhoneInput.value = '';
   clearPhoneHint();
+  hideRecipientPreview();
 
   if (!country) {
+    recipientPhoneInput.value = '';
     recipientPhoneInput.disabled = true;
     recipientPhoneInput.placeholder = 'Select country first';
+    refreshFxDisplays();
     return;
   }
 
   recipientPhoneInput.disabled = false;
   recipientPhoneInput.placeholder = country.phoneExample;
+  // Pre-fill the dial code so the person only has to type the national number.
+  recipientPhoneInput.value = `+${country.dialCode.replace(/\D/g, '')}`;
+
+  refreshFxDisplays();
 });
 
 // Validates the recipient phone number against the selected recipient
@@ -92,7 +298,7 @@ recipientCountrySelect.addEventListener('change', () => {
 // here but the server never trusts this alone.
 function validateRecipientPhone() {
   const code = recipientCountrySelect.value;
-  const country = state.countries.find((c) => c.code === code);
+  const country = getCountryObj(code);
   if (!country) return true; // nothing to validate yet — country not chosen
 
   const value = recipientPhoneInput.value.trim();
@@ -130,13 +336,61 @@ function clearPhoneHint() {
   recipientPhoneInput.classList.remove('input-error');
 }
 
+// ---------- Recipient preview (name + bank) ----------
+// Feature: Recipient — reveals the resolved name/bank as soon as the phone
+// number is valid, via GET /api/recipient/:country/:phone. Replaces waiting
+// for full submission to learn who the money is going to.
+
+function hideRecipientPreview() {
+  recipientPreview.hidden = true;
+  recipientPreviewName.textContent = '';
+  recipientPreviewBank.textContent = '';
+}
+
+async function updateRecipientPreview() {
+  const country = getCountryObj(recipientCountrySelect.value);
+  if (!country || !validateRecipientPhone()) {
+    hideRecipientPreview();
+    return;
+  }
+
+  const phone = recipientPhoneInput.value.trim();
+
+  try {
+    const res = await fetch(`/api/recipient/${country.code}/${encodeURIComponent(phone)}`);
+    const data = await res.json();
+
+    if (!res.ok || !data.valid) {
+      hideRecipientPreview();
+      return;
+    }
+
+    recipientPreviewName.textContent = data.recipient.recipientName;
+    recipientPreviewBank.textContent = data.recipient.bankName;
+    recipientPreview.hidden = false;
+  } catch (err) {
+    hideRecipientPreview();
+  }
+}
+
+const debouncedUpdateRecipientPreview = debounce(updateRecipientPreview, 400);
+
 recipientPhoneInput.addEventListener('input', () => {
+  applyPhoneMask();
+
   // Only show errors once the person has typed something worth checking —
   // avoids flashing red on the very first keystroke.
-  if (recipientPhoneInput.value.trim().length > 0) validateRecipientPhone();
+  if (recipientPhoneInput.value.replace(/\D/g, '').length > 0) validateRecipientPhone();
+
+  debouncedUpdateRecipientPreview();
 });
 
-recipientPhoneInput.addEventListener('blur', validateRecipientPhone);
+recipientPhoneInput.addEventListener('blur', () => {
+  validateRecipientPhone();
+  updateRecipientPreview();
+});
+
+// ---------- Submit ----------
 
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -150,6 +404,14 @@ form.addEventListener('submit', async (e) => {
     return;
   }
 
+  const rawAmount = getRawAmountValue();
+  if (!rawAmount || rawAmount <= 0) {
+    submitHint.textContent = 'Enter a valid amount before sending.';
+    submitHint.classList.add('error');
+    amountInput.focus();
+    return;
+  }
+
   submitBtn.disabled = true;
   submitBtn.textContent = 'Sending…';
 
@@ -159,7 +421,7 @@ form.addEventListener('submit', async (e) => {
     senderName: document.getElementById('senderName').value,
     senderCountry: senderCountrySelect.value,
     senderBank: senderBankSelect.value,
-    amount: document.getElementById('amount').value,
+    amount: rawAmount,
     recipientCountry: recipientCountrySelect.value,
     recipientPhone: recipientPhoneInput.value.trim(),
   };
