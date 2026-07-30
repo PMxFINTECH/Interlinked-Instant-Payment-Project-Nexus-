@@ -51,9 +51,17 @@
 
         <label class="field">
           <span>Bank</span>
-          <select id="senderBank" name="senderBank" required disabled>
-            <option value="" disabled selected>Select country first</option>
-          </select>
+          <div class="custom-select" id="senderBankCustom">
+            <select id="senderBank" name="senderBank" required disabled class="native-select-hidden" aria-hidden="true" tabindex="-1">
+              <option value="" disabled selected>Select country first</option>
+            </select>
+            <button type="button" class="custom-select-trigger" aria-haspopup="listbox" aria-expanded="false" disabled>
+              <span class="custom-select-chip-slot"></span>
+              <span class="custom-select-label">Select country first</span>
+              <span class="custom-select-caret">▾</span>
+            </button>
+            <ul class="custom-select-list" role="listbox" hidden></ul>
+          </div>
         </label>
 
         <label class="field">
