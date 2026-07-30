@@ -194,6 +194,186 @@ function setupCountryDropdown(containerId, selectEl) {
 const senderCountryDropdown = setupCountryDropdown('senderCountryCustom', senderCountrySelect);
 const recipientCountryDropdown = setupCountryDropdown('recipientCountryCustom', recipientCountrySelect);
 
+// ---------- Banks — logo chips ----------
+// Feature: Banks — maps each bank name to a logo asset where we have one on
+// file. Names not in this map fall back to an initials chip so every bank
+// renders consistently (same tile shape/size) whether or not a real logo
+// was sourced. Shared institutions (HSBC, Citibank, Standard Chartered,
+// UOB, Maybank, CIMB, RHB) reuse one asset across the countries they
+// appear in under slightly different label text.
+const BANK_LOGOS = {
+  'DBS Bank': 'dbs-bank.svg',
+  'OCBC Bank': 'ocbc-bank.svg',
+  'UOB': 'uob.svg',
+  'UOB Malaysia': 'uob.svg',
+  'UOB Thailand': 'uob.svg',
+  'UOB Indonesia': 'uob.svg',
+  'HSBC': 'hsbc.svg',
+  'Citibank': 'citibank.svg',
+  'Standard Chartered': 'standard-chartered.svg',
+  'Maybank Singapore': 'maybank.svg',
+  'Maybank': 'maybank.svg',
+  'CIMB Singapore': 'cimb.svg',
+  'CIMB Bank': 'cimb.svg',
+  'CIMB Niaga': 'cimb.svg',
+  'RHB Bank Singapore': 'rhb.webp',
+  'RHB Bank': 'rhb.webp',
+  'Bank of China (Singapore)': 'bank-of-china.svg',
+  'Public Bank': 'public-bank.svg',
+  'Hong Leong Bank': 'hong-leong-bank.svg',
+  'Bangkok Bank': 'bangkok-bank.svg',
+  'Kasikornbank': 'kasikornbank.svg',
+  'Siam Commercial Bank': 'siam-commercial-bank.svg',
+  'Krung Thai Bank': 'krung-thai-bank.svg',
+  'Bank of Ayudhya (Krungsri)': 'krungsri.svg',
+  'TMBThanachart Bank': 'tmbthanachart-bank.svg',
+  'Bank Central Asia (BCA)': 'bca.svg',
+  'Bank Mandiri': 'bank-mandiri.svg',
+  'Bank Rakyat Indonesia (BRI)': 'bri.svg',
+  'Bank Negara Indonesia (BNI)': 'bni.svg',
+  'Bank Danamon': 'bank-danamon.png',
+  'BDO Unibank': 'bdo-unibank.svg',
+  'Bank of the Philippine Islands (BPI)': 'bpi.svg',
+  'Metrobank': 'metrobank.svg',
+  'BIDV': 'bidv.svg',
+};
+
+const LOGO_BASE_PATH = 'assets/banks/';
+
+function getBankInitials(name) {
+  const words = name.replace(/\(.*?\)/g, '').trim().split(/\s+/).filter(Boolean);
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (words[0][0] + words[1][0]).toUpperCase();
+}
+
+function buildBankChip(bankName) {
+  const chip = document.createElement('span');
+  chip.className = 'bank-chip';
+
+  const logoFile = BANK_LOGOS[bankName];
+  if (logoFile) {
+    const img = document.createElement('img');
+    img.src = LOGO_BASE_PATH + logoFile;
+    img.alt = '';
+    img.loading = 'lazy';
+    chip.appendChild(img);
+  } else {
+    chip.classList.add('bank-chip-fallback');
+    chip.textContent = getBankInitials(bankName);
+  }
+
+  return chip;
+}
+
+// Same wrapping pattern as setupCountryDropdown: a hidden native <select>
+// stays the source of truth for .value and 'change' events, with a custom
+// listbox layered on top so each option can show a logo chip.
+function setupBankDropdown(containerId, selectEl) {
+  const container = document.getElementById(containerId);
+  const trigger = container.querySelector('.custom-select-trigger');
+  const triggerChipSlot = trigger.querySelector('.custom-select-chip-slot');
+  const triggerLabel = trigger.querySelector('.custom-select-label');
+  const list = container.querySelector('.custom-select-list');
+
+  function close() {
+    list.hidden = true;
+    trigger.setAttribute('aria-expanded', 'false');
+  }
+
+  function open() {
+    if (trigger.disabled) return;
+    list.hidden = false;
+    trigger.setAttribute('aria-expanded', 'true');
+    const active = list.querySelector('[aria-selected="true"]') || list.querySelector('li');
+    if (active) active.focus();
+  }
+
+  function toggle() {
+    if (list.hidden) open();
+    else close();
+  }
+
+  function selectBank(bankName) {
+    selectEl.value = bankName;
+    triggerChipSlot.innerHTML = '';
+    triggerChipSlot.appendChild(buildBankChip(bankName));
+    triggerLabel.textContent = bankName;
+    list.querySelectorAll('li').forEach((li) => {
+      li.setAttribute('aria-selected', li.dataset.bank === bankName ? 'true' : 'false');
+    });
+    close();
+    trigger.focus();
+    selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  function reset(placeholder) {
+    selectEl.value = '';
+    triggerChipSlot.innerHTML = '';
+    triggerLabel.textContent = placeholder;
+    list.innerHTML = '';
+  }
+
+  function setDisabled(isDisabled) {
+    trigger.disabled = isDisabled;
+    trigger.classList.toggle('is-disabled', isDisabled);
+    if (isDisabled) close();
+  }
+
+  function populate(bankNames) {
+    list.innerHTML = '';
+    bankNames.forEach((bankName) => {
+      const li = document.createElement('li');
+      li.setAttribute('role', 'option');
+      li.setAttribute('tabindex', '-1');
+      li.setAttribute('aria-selected', 'false');
+      li.dataset.bank = bankName;
+
+      li.appendChild(buildBankChip(bankName));
+
+      const textSpan = document.createElement('span');
+      textSpan.textContent = bankName;
+      li.appendChild(textSpan);
+
+      li.addEventListener('click', () => selectBank(bankName));
+      li.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          selectBank(bankName);
+        } else if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          if (li.nextElementSibling) li.nextElementSibling.focus();
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          if (li.previousElementSibling) li.previousElementSibling.focus();
+        } else if (e.key === 'Escape') {
+          close();
+          trigger.focus();
+        }
+      });
+
+      list.appendChild(li);
+    });
+  }
+
+  trigger.addEventListener('click', toggle);
+  trigger.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      open();
+    } else if (e.key === 'Escape') {
+      close();
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!container.contains(e.target)) close();
+  });
+
+  return { populate, reset, setDisabled };
+}
+
+const senderBankDropdown = setupBankDropdown('senderBankCustom', senderBankSelect);
+
 // ---------- Debounce helper ----------
 
 function debounce(fn, delay) {
@@ -316,11 +496,13 @@ senderCountrySelect.addEventListener('change', async () => {
   senderCurrencyPrefix.textContent = country ? (CURRENCY_SYMBOLS[country.currency] || country.currency) : '—';
 
   senderBankSelect.disabled = true;
-  senderBankSelect.innerHTML = '<option value="" disabled selected>Loading banks…</option>';
+  senderBankDropdown.reset('Loading banks…');
+  senderBankDropdown.setDisabled(true);
 
   try {
     const res = await fetch(`/api/banks/${code}`);
     const banks = await res.json();
+
     senderBankSelect.innerHTML = '<option value="" disabled selected>Select bank</option>';
     banks.forEach((bank) => {
       const opt = document.createElement('option');
@@ -328,9 +510,13 @@ senderCountrySelect.addEventListener('change', async () => {
       opt.textContent = bank;
       senderBankSelect.appendChild(opt);
     });
+
+    senderBankDropdown.reset('Select bank');
+    senderBankDropdown.populate(banks);
+    senderBankDropdown.setDisabled(false);
     senderBankSelect.disabled = false;
   } catch (err) {
-    senderBankSelect.innerHTML = '<option value="" disabled selected>Could not load banks</option>';
+    senderBankDropdown.reset('Could not load banks');
   }
 
   refreshFxDisplays();
