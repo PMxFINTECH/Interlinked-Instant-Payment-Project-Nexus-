@@ -163,6 +163,57 @@ footer.page-footer {
   margin: 2px 0 0;
 }
 
+/* Banks — logo chip (white tile so every bank's brand colors stay legible
+   against the dark panel) with a neutral fallback tile for banks we don't
+   have a sourced logo for yet */
+
+.bank-chip {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: #f4f4f2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.bank-chip img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 4px;
+  box-sizing: border-box;
+}
+
+.bank-chip-fallback {
+  background: #24344a;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.custom-select-chip-slot {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  min-width: 28px;
+}
+
+.custom-select-list li .bank-chip {
+  width: 26px;
+  height: 26px;
+}
+
+.custom-select-trigger:disabled,
+.custom-select-trigger.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 /* Countries — custom flag dropdown (replaces native <select> visually,
    which stays in the DOM hidden and functional for value + change events) */
 
