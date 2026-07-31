@@ -236,6 +236,17 @@ const BANK_LOGOS = {
   'Bank of the Philippine Islands (BPI)': 'BPHLY.svg',
   'Metrobank': 'MTPOY.svg',
   'BIDV': 'BID.VN.svg',
+  'AmBank': 'ambank.webp',
+  'Land Bank of the Philippines': 'landbank.webp',
+  'Philippine National Bank (PNB)': 'pnb.png',
+  'Security Bank': 'security-bank.jpg',
+  'UnionBank': 'unionbank.png',
+  'Vietcombank': 'vietcombank.webp',
+  'Techcombank': 'techcombank.png',
+  'VietinBank': 'vietinbank.png',
+  'Asia Commercial Bank (ACB)': 'acb.webp',
+  'Sacombank': 'sacombank.png',
+  'ANZ Vietnam': 'anz-vietnam.webp',
 };
 
 const LOGO_BASE_PATH = 'assets/banks/';
