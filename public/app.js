@@ -24,6 +24,15 @@ const CURRENCY_DECIMALS = {
   VND: 0,
 };
 
+// Feature: Amount / Currency Conversion — THB and VND symbols (฿, ₫) read
+// poorly in the teal accent color against the dark panel, so those two get
+// plain white instead. Everything else keeps the accent teal.
+const LOW_CONTRAST_CURRENCIES = new Set(['THB', 'VND']);
+
+function applyCurrencyColor(el, currencyCode) {
+  el.classList.toggle('currency-alt', LOW_CONTRAST_CURRENCIES.has(currencyCode));
+}
+
 const senderCountrySelect = document.getElementById('senderCountry');
 const senderBankSelect = document.getElementById('senderBank');
 const senderCurrencyPrefix = document.getElementById('senderCurrencyPrefix');
@@ -83,14 +92,34 @@ function getCountryObj(code) {
 }
 
 // ---------- Countries — flag rendering ----------
-// Feature: Countries — derives the flag emoji directly from each country's
-// ISO 3166-1 alpha-2 code (SG, MY, TH, ID, PH, VN) rather than fetching
-// external logo images, so there's no asset loading or licensing to manage.
+// Feature: Countries — renders each country's flag as a sourced SVG image
+// instead of a Unicode flag emoji. Windows renders flag emoji as plain
+// two-letter codes rather than pictures (a platform-level font choice, not
+// a bug in this app), so an image asset is the only way to guarantee the
+// flag actually looks like a flag for every user regardless of OS. Same
+// pattern as BANK_LOGOS below: a lookup map + a neutral fallback.
+const COUNTRY_FLAGS = {
+  SG: 'sg.svg',
+  MY: 'my.svg',
+  TH: 'th.svg',
+  ID: 'id.svg',
+  PH: 'ph.svg',
+  VN: 'vn.svg',
+};
 
-function countryCodeToFlagEmoji(code) {
-  if (!code || code.length !== 2) return '';
-  const codePoints = [...code.toUpperCase()].map((char) => 127397 + char.charCodeAt(0));
-  return String.fromCodePoint(...codePoints);
+const FLAG_BASE_PATH = 'assets/flags/';
+
+function buildFlagImg(countryCode, countryName) {
+  const img = document.createElement('img');
+  img.className = 'flag-icon';
+  const file = COUNTRY_FLAGS[countryCode];
+  if (file) {
+    img.src = FLAG_BASE_PATH + file;
+  }
+  img.alt = '';
+  img.loading = 'lazy';
+  img.title = countryName || '';
+  return img;
 }
 
 // Builds a fully custom, keyboard-accessible listbox over a hidden native
@@ -101,7 +130,7 @@ function countryCodeToFlagEmoji(code) {
 function setupCountryDropdown(containerId, selectEl) {
   const container = document.getElementById(containerId);
   const trigger = container.querySelector('.custom-select-trigger');
-  const triggerFlag = trigger.querySelector('.custom-select-flag');
+  const triggerFlagSlot = trigger.querySelector('.custom-select-flag');
   const triggerLabel = trigger.querySelector('.custom-select-label');
   const list = container.querySelector('.custom-select-list');
 
@@ -124,7 +153,8 @@ function setupCountryDropdown(containerId, selectEl) {
 
   function selectCountry(country) {
     selectEl.value = country.code;
-    triggerFlag.textContent = countryCodeToFlagEmoji(country.code);
+    triggerFlagSlot.innerHTML = '';
+    triggerFlagSlot.appendChild(buildFlagImg(country.code, country.name));
     triggerLabel.textContent = `${country.name} (${country.currency})`;
     list.querySelectorAll('li').forEach((li) => {
       li.setAttribute('aria-selected', li.dataset.code === country.code ? 'true' : 'false');
@@ -143,14 +173,11 @@ function setupCountryDropdown(containerId, selectEl) {
       li.setAttribute('aria-selected', 'false');
       li.dataset.code = country.code;
 
-      const flagSpan = document.createElement('span');
-      flagSpan.className = 'custom-select-flag';
-      flagSpan.textContent = countryCodeToFlagEmoji(country.code);
+      li.appendChild(buildFlagImg(country.code, country.name));
 
       const textSpan = document.createElement('span');
       textSpan.textContent = `${country.name} (${country.currency})`;
 
-      li.appendChild(flagSpan);
       li.appendChild(textSpan);
 
       li.addEventListener('click', () => selectCountry(country));
@@ -485,6 +512,7 @@ async function updateConvertedAmount() {
     if (!res.ok) throw new Error(data.error || 'FX quote failed');
 
     convertedAmountInput.value = formatCurrency(data.convertedAmount, recipient.currency);
+    applyCurrencyColor(convertedAmountInput, recipient.currency);
     convertedAmountWrapper.hidden = false;
   } catch (err) {
     convertedAmountWrapper.hidden = true;
@@ -505,6 +533,7 @@ senderCountrySelect.addEventListener('change', async () => {
   const code = senderCountrySelect.value;
   const country = getCountryObj(code);
   senderCurrencyPrefix.textContent = country ? (CURRENCY_SYMBOLS[country.currency] || country.currency) : '—';
+  applyCurrencyColor(senderCurrencyPrefix, country ? country.currency : '');
 
   senderBankSelect.disabled = true;
   senderBankDropdown.reset('Loading banks…');
