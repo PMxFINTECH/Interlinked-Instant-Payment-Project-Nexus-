@@ -203,6 +203,10 @@ footer.page-footer {
   min-width: 28px;
 }
 
+.custom-select-chip-slot:empty {
+  display: none;
+}
+
 .custom-select-list li .bank-chip {
   width: 26px;
   height: 26px;
@@ -269,6 +273,10 @@ footer.page-footer {
   align-items: center;
   flex-shrink: 0;
   width: 22px;
+}
+
+.custom-select-flag:empty {
+  display: none;
 }
 
 .flag-icon {
