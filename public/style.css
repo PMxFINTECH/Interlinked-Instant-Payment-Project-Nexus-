@@ -159,8 +159,12 @@ footer.page-footer {
 .field-hint {
   font-family: var(--font-mono);
   font-size: 11.5px;
-  color: var(--danger);
+  color: var(--text-muted);
   margin: 2px 0 0;
+}
+
+.field-hint.error {
+  color: var(--danger);
 }
 
 /* Banks — logo chip (white tile so every bank's brand colors stay legible
