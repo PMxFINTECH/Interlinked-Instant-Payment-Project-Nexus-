@@ -135,43 +135,34 @@
         <button type="submit" id="submitBtn">Send payment →</button>
         <p class="submit-hint" id="submitHint"></p>
       </div>
-    </form>
 
-    <section id="trace" class="trace-panel" hidden>
-      <p class="column-label">Payment trace</p>
-
-      <svg id="rail" class="rail" viewBox="0 0 900 80" preserveAspectRatio="xMidYMid meet">
-        <line class="rail-track" x1="60" y1="40" x2="840" y2="40" />
-        <line id="rail-progress" class="rail-progress" x1="60" y1="40" x2="60" y2="40" />
-        <g class="rail-station" data-station="0" transform="translate(60,40)">
-          <circle r="9" />
-          <text y="34">Compliance</text>
-        </g>
-        <g class="rail-station" data-station="1" transform="translate(255,40)">
-          <circle r="9" />
-          <text y="34">Proxy resolution</text>
-        </g>
-        <g class="rail-station" data-station="2" transform="translate(450,40)">
-          <circle r="9" />
-          <text y="34">FX conversion</text>
-        </g>
-        <g class="rail-station" data-station="3" transform="translate(645,40)">
-          <circle r="9" />
-          <text y="34">Message translation</text>
-        </g>
-        <g class="rail-station" data-station="4" transform="translate(840,40)">
-          <circle r="9" />
-          <text y="34">Settled</text>
-        </g>
-      </svg>
-
-      <div id="stationCards" class="station-cards"></div>
-
-      <div id="messageBlock" class="message-block" hidden>
-        <button type="button" id="toggleMessage" class="text-toggle">Show ISO 20022–style message ▾</button>
-        <pre id="messageJson" class="message-json" hidden></pre>
+      <div id="trace" class="rail-row" hidden>
+        <svg id="rail" class="rail" viewBox="0 0 900 80" preserveAspectRatio="xMidYMid meet">
+          <line class="rail-track" x1="60" y1="40" x2="840" y2="40" />
+          <line id="rail-progress" class="rail-progress" x1="60" y1="40" x2="60" y2="40" />
+          <g class="rail-station" data-station="0" transform="translate(60,40)">
+            <circle r="9" />
+            <text y="34">Compliance</text>
+          </g>
+          <g class="rail-station" data-station="1" transform="translate(255,40)">
+            <circle r="9" />
+            <text y="34">Proxy resolution</text>
+          </g>
+          <g class="rail-station" data-station="2" transform="translate(450,40)">
+            <circle r="9" />
+            <text y="34">FX conversion</text>
+          </g>
+          <g class="rail-station" data-station="3" transform="translate(645,40)">
+            <circle r="9" />
+            <text y="34">Message translation</text>
+          </g>
+          <g class="rail-station" data-station="4" transform="translate(840,40)">
+            <circle r="9" />
+            <text y="34">Settled</text>
+          </g>
+        </svg>
       </div>
-    </section>
+    </form>
   </main>
 
   <footer class="page-footer">
