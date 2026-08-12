@@ -52,33 +52,44 @@ footer.page-footer {
 }
 
 .page-header {
-  padding-top: 64px;
+  padding-top: 160px;
   padding-bottom: 32px;
 }
 
 .eyebrow {
+  display: inline-flex;
+  align-items: center;
   font-family: var(--font-mono);
   font-size: 12px;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--accent);
-  margin: 0 0 14px;
+  background: rgba(45, 212, 200, 0.1);
+  border: 1px solid rgba(45, 212, 200, 0.25);
+  border-radius: 999px;
+  padding: 6px 14px;
+  margin: 0 0 20px;
 }
 
 .page-header h1 {
   font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 34px;
-  line-height: 1.2;
-  margin: 0 0 16px;
-  max-width: 720px;
-  letter-spacing: -0.01em;
+  font-weight: 700;
+  font-size: 44px;
+  line-height: 1.08;
+  margin: 0 0 18px;
+  max-width: 760px;
+  letter-spacing: -0.02em;
+}
+
+.accent-text {
+  color: var(--accent);
 }
 
 .subcopy {
   color: var(--text-muted);
-  max-width: 620px;
-  font-size: 15px;
+  max-width: 540px;
+  font-size: 17px;
+  line-height: 1.6;
   margin: 0;
 }
 
@@ -824,8 +835,12 @@ body.modal-open {
     margin: 0 8px;
   }
 
+  .page-header {
+    padding-top: 96px;
+  }
+
   .page-header h1 {
-    font-size: 26px;
+    font-size: 30px;
   }
 
   .rail text {
