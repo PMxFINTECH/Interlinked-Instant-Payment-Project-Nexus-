@@ -10,7 +10,7 @@
   --success: #45d483;
   --danger: #f2596b;
 
-  --font-display: 'Space Grotesk', sans-serif;
+  --font-display: 'Bricolage Grotesque', sans-serif;
   --font-body: 'Inter', sans-serif;
   --font-mono: 'IBM Plex Mono', monospace;
 }
@@ -418,11 +418,25 @@ footer.page-footer {
 /* Recipient name/bank preview */
 
 .recipient-preview {
-  background: #0e1826;
-  border: 1px solid var(--panel-border);
-  border-radius: 8px;
-  padding: 12px 14px;
-  margin-top: -4px;
+  background: #101d30;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-top: 6px;
+  box-shadow:
+    0 18px 40px -18px rgba(0, 0, 0, 0.55),
+    0 2px 6px rgba(0, 0, 0, 0.25);
+  opacity: 0;
+  transform: translateY(8px);
+  animation: reveal 0.4s ease forwards;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.recipient-preview:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 24px 48px -16px rgba(0, 0, 0, 0.6),
+    0 4px 10px rgba(0, 0, 0, 0.3);
 }
 
 .recipient-preview p {
@@ -617,9 +631,20 @@ body.modal-open {
   border: 1px solid var(--success);
   border-radius: 12px;
   padding: 20px 24px;
+  box-shadow:
+    0 20px 44px -18px rgba(0, 0, 0, 0.55),
+    0 2px 6px rgba(0, 0, 0, 0.25);
   opacity: 0;
   transform: translateY(6px);
   animation: reveal 0.4s ease forwards;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.success-panel:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 26px 52px -16px rgba(0, 0, 0, 0.6),
+    0 4px 10px rgba(0, 0, 0, 0.3);
 }
 
 .success-panel[hidden] {
@@ -635,178 +660,3 @@ body.modal-open {
 
 .success-panel-icon {
   width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: var(--success);
-  color: #06120f;
-  font-family: var(--font-mono);
-  font-weight: 700;
-  font-size: 13px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.success-panel-header h3 {
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 15px;
-  color: var(--success);
-  margin: 0;
-  flex: 1;
-}
-
-.success-panel-close {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  font-size: 18px;
-  line-height: 1;
-  cursor: pointer;
-  padding: 2px 6px;
-}
-
-.success-panel-close:hover {
-  color: var(--text);
-}
-
-.success-panel-body p {
-  font-family: var(--font-mono);
-  font-size: 13.5px;
-  margin: 0 0 6px;
-  color: var(--text);
-}
-
-.success-panel-body p:last-child {
-  margin-bottom: 0;
-}
-
-.success-panel-body .label {
-  color: var(--text-muted);
-  margin-right: 6px;
-}
-
-/* Payment trace — now just the rail, living inside the hub-panel form
-   directly under the submit row rather than in its own boxed section. */
-
-.rail-row {
-  grid-column: 1 / -1;
-  margin-top: 24px;
-}
-
-.rail-row[hidden] {
-  display: none;
-}
-
-.rail {
-  width: 100%;
-  height: auto;
-  overflow: visible;
-}
-
-.rail-track {
-  stroke: var(--panel-border);
-  stroke-width: 2;
-}
-
-.rail-progress {
-  stroke: var(--accent);
-  stroke-width: 2;
-  transition: x2 0.5s ease;
-}
-
-.rail-progress.blocked {
-  stroke: var(--danger);
-}
-
-.rail-station circle {
-  fill: #0e1826;
-  stroke: var(--panel-border);
-  stroke-width: 2;
-  transition: fill 0.3s ease, stroke 0.3s ease;
-}
-
-.rail-station.done circle {
-  fill: var(--accent);
-  stroke: var(--accent);
-}
-
-.rail-station.blocked circle {
-  fill: var(--danger);
-  stroke: var(--danger);
-}
-
-.rail-station text {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  fill: var(--text-muted);
-  text-anchor: middle;
-  transition: fill 0.3s ease;
-}
-
-.rail-station.done text {
-  fill: var(--text);
-}
-
-@keyframes reveal {
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.page-footer {
-  margin-top: 56px;
-  padding-bottom: 40px;
-}
-
-.page-footer p {
-  font-size: 12px;
-  color: var(--text-muted);
-  max-width: 620px;
-}
-
-/* Mobile */
-
-@media (max-width: 720px) {
-  .hub-panel {
-    grid-template-columns: 1fr;
-  }
-
-  .hub-divider {
-    flex-direction: row;
-    padding: 8px 0;
-  }
-
-  .hub-line {
-    width: auto;
-    height: 1px;
-    flex: 1;
-    margin: 0 8px;
-  }
-
-  .page-header h1 {
-    font-size: 26px;
-  }
-
-  .rail text {
-    font-size: 9px;
-  }
-
-  .modal-box {
-    padding: 22px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .rail-progress,
-  .rail-station circle,
-  .rail-station text,
-  .success-panel {
-    transition: none;
-    animation: none;
-    opacity: 1;
-    transform: none;
-  }
-}
