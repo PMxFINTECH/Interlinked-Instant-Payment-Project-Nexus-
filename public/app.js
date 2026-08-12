@@ -52,12 +52,12 @@ const form = document.getElementById('payment-form');
 const submitBtn = document.getElementById('submitBtn');
 const submitHint = document.getElementById('submitHint');
 
+// UX restructure: the payment trace is now just the rail (svg), living
+// directly under the submit row inside the same hub-panel card. The old
+// station-cards detail list and the ISO 20022 message toggle/JSON block
+// have been removed entirely — see runBlockedTrace / runCompletedTrace.
 const trace = document.getElementById('trace');
 const railProgress = document.getElementById('rail-progress');
-const stationCardsEl = document.getElementById('stationCards');
-const messageBlock = document.getElementById('messageBlock');
-const messageJsonEl = document.getElementById('messageJson');
-const toggleMessageBtn = document.getElementById('toggleMessage');
 
 const STATION_X = [60, 255, 450, 645, 840];
 const STATION_LABELS = ['Compliance', 'Proxy resolution', 'FX conversion', 'Message translation', 'Settled'];
@@ -167,10 +167,8 @@ function showConfirmModal({ recipientName, phone, countryName, amountText }) {
 }
 
 // ---------- Feature: Payment sent confirmation ----------
-// Replaces the old "Settled" station card. Sits directly under the
-// sender/recipient form (.hub-panel), not inside the trace panel, so it
-// reads as "here's what just happened to your money", not another step
-// in the technical trace.
+// Sits directly under the sender/recipient form (.hub-panel), showing
+// "here's what just happened to your money" once the rail finishes.
 
 function buildSuccessPanel() {
   const panel = document.createElement('div');
@@ -209,7 +207,7 @@ function buildSuccessPanel() {
   panel.appendChild(body);
 
   // form === .hub-panel (the sender/recipient info box), so this lands
-  // immediately below it in normal document flow.
+  // immediately below it — below the whole form now, including the rail.
   form.insertAdjacentElement('afterend', panel);
 
   return { panel, body };
@@ -1031,10 +1029,6 @@ function resetTrace() {
   railProgress.setAttribute('x2', STATION_X[0]);
   railProgress.classList.remove('blocked');
   document.querySelectorAll('.rail-station').forEach((s) => s.classList.remove('done', 'blocked'));
-  stationCardsEl.innerHTML = '';
-  messageBlock.hidden = true;
-  messageJsonEl.hidden = true;
-  toggleMessageBtn.textContent = 'Show ISO 20022–style message ▾';
 }
 
 function wait(ms) {
@@ -1048,67 +1042,28 @@ function lightStation(index, blocked = false) {
   if (blocked) railProgress.classList.add('blocked');
 }
 
-function addStationCard(title, rows, blocked = false) {
-  const card = document.createElement('div');
-  card.className = 'station-card' + (blocked ? ' blocked' : '');
-  const heading = document.createElement('h3');
-  heading.textContent = title;
-  card.appendChild(heading);
-  rows.forEach(([label, value]) => {
-    const p = document.createElement('p');
-    const labelSpan = document.createElement('span');
-    labelSpan.className = 'label';
-    labelSpan.textContent = label;
-    p.appendChild(labelSpan);
-    p.appendChild(document.createTextNode(value));
-    card.appendChild(p);
-  });
-  stationCardsEl.appendChild(card);
-}
-
 async function runBlockedTrace(data) {
   await wait(200);
   lightStation(0, true);
-  addStationCard(
-    STATION_LABELS[0],
-    [
-      ['Result:', 'Blocked'],
-      ['Reason:', data.compliance?.reason || data.reason || 'Sender failed sanctions screening.'],
-    ],
-    true
-  );
-  submitHint.textContent = 'Payment blocked at compliance screening.';
+
+  const reason = data.compliance?.reason || data.reason || 'Sender failed sanctions screening.';
+  submitHint.textContent = `Payment blocked at compliance screening — ${reason}`;
   submitHint.classList.add('error');
 }
 
 async function runCompletedTrace(data) {
   await wait(200);
   lightStation(0);
-  addStationCard(STATION_LABELS[0], [['Result:', 'Passed']]);
 
   await wait(500);
   lightStation(1);
-  addStationCard(STATION_LABELS[1], [
-    ['Recipient:', data.recipient.recipientName],
-    ['Bank:', data.recipient.bankName],
-    ['Account:', data.recipient.accountId],
-  ]);
 
   await wait(500);
   lightStation(2);
-  addStationCard(STATION_LABELS[2], [
-    ['Rate:', `1 ${data.fx.fromCurrency} = ${data.fx.rate.toFixed(6)} ${data.fx.toCurrency}`],
-    ['Converted:', `${data.fx.convertedAmount} ${data.fx.toCurrency}`],
-  ]);
 
   await wait(500);
   lightStation(3);
-  addStationCard(STATION_LABELS[3], [['Format:', 'ISO 20022–inspired'], ['Msg ID:', data.message.GrpHdr.MsgId]]);
 
-  // Feature: Payment sent confirmation — the rail still finishes its run
-  // visually (station 5 lights up), but the text feedback for "it's done"
-  // now lives in the success panel under the form instead of a station
-  // card here.
   await wait(500);
   lightStation(4);
 
@@ -1116,13 +1071,4 @@ async function runCompletedTrace(data) {
     showSuccessPanel(pendingPaymentSummary);
     pendingPaymentSummary = null;
   }
-
-  messageBlock.hidden = false;
-  messageJsonEl.textContent = JSON.stringify(data.message, null, 2);
 }
-
-toggleMessageBtn.addEventListener('click', () => {
-  const isHidden = messageJsonEl.hidden;
-  messageJsonEl.hidden = !isHidden;
-  toggleMessageBtn.textContent = isHidden ? 'Hide ISO 20022–style message ▴' : 'Show ISO 20022–style message ▾';
-});
