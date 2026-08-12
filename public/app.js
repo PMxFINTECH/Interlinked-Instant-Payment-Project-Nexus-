@@ -601,6 +601,15 @@ function applyPhoneMask() {
   const { dialDigits, groupSizes } = getPhoneFormat(country);
   let digits = recipientPhoneInput.value.replace(/\D/g, '');
 
+  // If there aren't more digits than the dial code itself, the person has
+  // backspaced into (or not yet past) the dial code — snap back to the bare
+  // dial code rather than treating a partially-deleted dial code as the
+  // start of a national number (that's what produced a stray leftover digit).
+  if (digits.length <= dialDigits.length) {
+    recipientPhoneInput.value = `+${dialDigits}`;
+    return;
+  }
+
   if (digits.startsWith(dialDigits)) {
     digits = digits.slice(dialDigits.length);
   }
@@ -613,10 +622,10 @@ recipientCountrySelect.addEventListener('change', () => {
   const code = recipientCountrySelect.value;
   const country = getCountryObj(code);
 
-  clearPhoneHint();
   hideRecipientPreview();
 
   if (!country) {
+    clearPhoneHint();
     recipientPhoneInput.value = '';
     recipientPhoneInput.disabled = true;
     recipientPhoneInput.placeholder = 'Select country first';
@@ -628,6 +637,7 @@ recipientCountrySelect.addEventListener('change', () => {
   recipientPhoneInput.placeholder = country.phoneExample;
   // Pre-fill the dial code so the person only has to type the national number.
   recipientPhoneInput.value = `+${country.dialCode.replace(/\D/g, '')}`;
+  showFormatHint(country);
 
   refreshFxDisplays();
 });
@@ -643,36 +653,50 @@ function validateRecipientPhone() {
 
   const value = recipientPhoneInput.value.trim();
   if (!value) {
-    setPhoneHint(`Phone number is required, e.g. ${country.phoneExample}`);
+    setPhoneError(`Phone number is required, e.g. ${country.phoneExample}`);
     return false;
   }
 
   const compact = value.replace(/[\s-]/g, '');
 
   if (!compact.startsWith(country.dialCode)) {
-    setPhoneHint(`Phone number must start with ${country.dialCode} for ${country.name}, e.g. ${country.phoneExample}`);
+    setPhoneError(`Phone number must start with ${country.dialCode} for ${country.name}, e.g. ${country.phoneExample}`);
     return false;
   }
 
   const nationalNumber = compact.slice(country.dialCode.length);
   if (!/^\d+$/.test(nationalNumber) || nationalNumber.length !== country.phoneDigits) {
-    setPhoneHint(`${country.name} numbers need ${country.phoneDigits} digits after ${country.dialCode}, e.g. ${country.phoneExample}`);
+    setPhoneError(`${country.name} numbers need ${country.phoneDigits} digits after ${country.dialCode}, e.g. ${country.phoneExample}`);
     return false;
   }
 
-  clearPhoneHint();
+  showFormatHint(country);
   return true;
 }
 
-function setPhoneHint(message) {
+// Feature: Recipient Phone Number — the hint line under the field has two
+// states: a neutral "here's the format" guide (shown as soon as a country is
+// picked, and again once the number becomes valid) and a red validation
+// error (shown only on blur/submit, never mid-typing, so the field doesn't
+// flash red after the very first keystroke).
+function showFormatHint(country) {
+  recipientPhoneHint.textContent = `Format: ${country.phoneExample}`;
+  recipientPhoneHint.hidden = false;
+  recipientPhoneHint.classList.remove('error');
+  recipientPhoneInput.classList.remove('input-error');
+}
+
+function setPhoneError(message) {
   recipientPhoneHint.textContent = message;
   recipientPhoneHint.hidden = false;
+  recipientPhoneHint.classList.add('error');
   recipientPhoneInput.classList.add('input-error');
 }
 
 function clearPhoneHint() {
   recipientPhoneHint.textContent = '';
   recipientPhoneHint.hidden = true;
+  recipientPhoneHint.classList.remove('error');
   recipientPhoneInput.classList.remove('input-error');
 }
 
@@ -718,10 +742,9 @@ const debouncedUpdateRecipientPreview = debounce(updateRecipientPreview, 400);
 recipientPhoneInput.addEventListener('input', () => {
   applyPhoneMask();
 
-  // Only show errors once the person has typed something worth checking —
-  // avoids flashing red on the very first keystroke.
-  if (recipientPhoneInput.value.replace(/\D/g, '').length > 0) validateRecipientPhone();
-
+  // No validation here — the format hint underneath already shows the
+  // expected pattern, and switching to a red error mid-keystroke felt
+  // premature. Real validation runs on blur and on submit instead.
   debouncedUpdateRecipientPreview();
 });
 
