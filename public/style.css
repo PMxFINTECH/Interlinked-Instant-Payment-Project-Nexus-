@@ -52,7 +52,7 @@ footer.page-footer {
 }
 
 .page-header {
-  padding-top: 160px;
+  padding-top: 200px;
   padding-bottom: 32px;
 }
 
@@ -86,6 +86,8 @@ footer.page-footer {
 }
 
 .subcopy {
+  font-family: var(--font-display);
+  font-weight: 500;
   color: var(--text-muted);
   max-width: 540px;
   font-size: 17px;
@@ -836,7 +838,7 @@ body.modal-open {
   }
 
   .page-header {
-    padding-top: 96px;
+    padding-top: 130px;
   }
 
   .page-header h1 {
