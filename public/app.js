@@ -62,6 +62,189 @@ const toggleMessageBtn = document.getElementById('toggleMessage');
 const STATION_X = [60, 255, 450, 645, 840];
 const STATION_LABELS = ['Compliance', 'Proxy resolution', 'FX conversion', 'Message translation', 'Settled'];
 
+// ---------- Feature: Send confirmation ----------
+// Asks "are you sure?" before the payment actually fires, showing exactly
+// who the money is going to (name / phone / country) so the sender can
+// catch a wrong number before it's too late. Built once and reused so we
+// don't leave stray overlay nodes behind on every submit.
+
+function buildConfirmModal() {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.hidden = true;
+
+  const box = document.createElement('div');
+  box.className = 'modal-box';
+  box.setAttribute('role', 'dialog');
+  box.setAttribute('aria-modal', 'true');
+  box.setAttribute('aria-labelledby', 'confirmModalTitle');
+
+  const title = document.createElement('h3');
+  title.id = 'confirmModalTitle';
+  title.className = 'modal-title';
+  title.textContent = 'Confirm payment';
+
+  const message = document.createElement('p');
+  message.className = 'modal-message';
+
+  const actions = document.createElement('div');
+  actions.className = 'modal-actions';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.className = 'modal-btn modal-btn-secondary';
+  cancelBtn.textContent = 'Cancel';
+
+  const sendBtn = document.createElement('button');
+  sendBtn.type = 'button';
+  sendBtn.className = 'modal-btn modal-btn-primary';
+  sendBtn.textContent = 'Send';
+
+  actions.appendChild(cancelBtn);
+  actions.appendChild(sendBtn);
+  box.appendChild(title);
+  box.appendChild(message);
+  box.appendChild(actions);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+
+  return { overlay, message, cancelBtn, sendBtn };
+}
+
+const confirmModalEls = buildConfirmModal();
+
+// Resolves true if the sender clicked Send, false for Cancel / Escape /
+// backdrop click. Listeners are attached and torn down per-call so repeat
+// opens never double-fire.
+function showConfirmModal({ recipientName, phone, countryName, amountText }) {
+  return new Promise((resolve) => {
+    confirmModalEls.message.innerHTML = '';
+    confirmModalEls.message.append(
+      'Send ',
+      Object.assign(document.createElement('strong'), { textContent: amountText }),
+      ' to ',
+      Object.assign(document.createElement('strong'), { textContent: recipientName }),
+      ' · ',
+      phone,
+      ' · ',
+      countryName,
+      '?'
+    );
+
+    confirmModalEls.overlay.hidden = false;
+    document.body.classList.add('modal-open');
+
+    function cleanup(result) {
+      confirmModalEls.overlay.hidden = true;
+      document.body.classList.remove('modal-open');
+      confirmModalEls.cancelBtn.removeEventListener('click', onCancel);
+      confirmModalEls.sendBtn.removeEventListener('click', onSend);
+      confirmModalEls.overlay.removeEventListener('click', onOverlayClick);
+      document.removeEventListener('keydown', onKeydown);
+      resolve(result);
+    }
+
+    function onCancel() {
+      cleanup(false);
+    }
+    function onSend() {
+      cleanup(true);
+    }
+    function onOverlayClick(e) {
+      if (e.target === confirmModalEls.overlay) cleanup(false);
+    }
+    function onKeydown(e) {
+      if (e.key === 'Escape') cleanup(false);
+    }
+
+    confirmModalEls.cancelBtn.addEventListener('click', onCancel);
+    confirmModalEls.sendBtn.addEventListener('click', onSend);
+    confirmModalEls.overlay.addEventListener('click', onOverlayClick);
+    document.addEventListener('keydown', onKeydown);
+
+    confirmModalEls.sendBtn.focus();
+  });
+}
+
+// ---------- Feature: Payment sent confirmation ----------
+// Replaces the old "Settled" station card. Sits directly under the
+// sender/recipient form (.hub-panel), not inside the trace panel, so it
+// reads as "here's what just happened to your money", not another step
+// in the technical trace.
+
+function buildSuccessPanel() {
+  const panel = document.createElement('div');
+  panel.className = 'success-panel';
+  panel.hidden = true;
+  panel.setAttribute('role', 'status');
+
+  const header = document.createElement('div');
+  header.className = 'success-panel-header';
+
+  const icon = document.createElement('span');
+  icon.className = 'success-panel-icon';
+  icon.textContent = '✓';
+  icon.setAttribute('aria-hidden', 'true');
+
+  const heading = document.createElement('h3');
+  heading.textContent = 'Payment sent';
+
+  const closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
+  closeBtn.className = 'success-panel-close';
+  closeBtn.setAttribute('aria-label', 'Dismiss');
+  closeBtn.textContent = '×';
+  closeBtn.addEventListener('click', () => {
+    panel.hidden = true;
+  });
+
+  header.appendChild(icon);
+  header.appendChild(heading);
+  header.appendChild(closeBtn);
+
+  const body = document.createElement('div');
+  body.className = 'success-panel-body';
+
+  panel.appendChild(header);
+  panel.appendChild(body);
+
+  // form === .hub-panel (the sender/recipient info box), so this lands
+  // immediately below it in normal document flow.
+  form.insertAdjacentElement('afterend', panel);
+
+  return { panel, body };
+}
+
+const successPanelEls = buildSuccessPanel();
+
+function showSuccessPanel({ recipientName, countryName, amountText }) {
+  successPanelEls.body.innerHTML = '';
+  const rows = [
+    ['Recipient:', recipientName],
+    ['Country:', countryName],
+    ['Amount sent:', amountText],
+  ];
+  rows.forEach(([label, value]) => {
+    const p = document.createElement('p');
+    const labelSpan = document.createElement('span');
+    labelSpan.className = 'label';
+    labelSpan.textContent = label;
+    p.appendChild(labelSpan);
+    p.appendChild(document.createTextNode(value));
+    successPanelEls.body.appendChild(p);
+  });
+  successPanelEls.panel.hidden = false;
+}
+
+function hideSuccessPanel() {
+  successPanelEls.panel.hidden = true;
+}
+
+// Set right before the real payment request fires, read back once the
+// COMPLETED response comes in — keeps the success panel's wording
+// identical to what the sender already confirmed in the modal.
+let pendingPaymentSummary = null;
+
 init();
 
 async function init() {
@@ -775,6 +958,34 @@ form.addEventListener('submit', async (e) => {
     return;
   }
 
+  // Feature: Send confirmation — gate the actual request behind an explicit
+  // Send/Cancel so a mistyped digit doesn't move money before the sender
+  // has a chance to double-check who it's going to.
+  const senderCountry = getCountryObj(senderCountrySelect.value);
+  const recipientCountry = getCountryObj(recipientCountrySelect.value);
+  const amountText = formatCurrency(rawAmount, senderCountry ? senderCountry.currency : '');
+  const recipientNameForConfirm = recipientPreviewName.textContent || 'the recipient';
+  const countryNameForConfirm = recipientCountry ? recipientCountry.name : recipientCountrySelect.value;
+  const phoneForConfirm = recipientPhoneInput.value.trim();
+
+  const confirmed = await showConfirmModal({
+    recipientName: recipientNameForConfirm,
+    phone: phoneForConfirm,
+    countryName: countryNameForConfirm,
+    amountText,
+  });
+
+  if (!confirmed) {
+    submitHint.textContent = 'Payment cancelled.';
+    return;
+  }
+
+  pendingPaymentSummary = {
+    recipientName: recipientNameForConfirm,
+    countryName: countryNameForConfirm,
+    amountText,
+  };
+
   submitBtn.disabled = true;
   submitBtn.textContent = 'Sending…';
 
@@ -816,6 +1027,7 @@ form.addEventListener('submit', async (e) => {
 
 function resetTrace() {
   trace.hidden = false;
+  hideSuccessPanel();
   railProgress.setAttribute('x2', STATION_X[0]);
   railProgress.classList.remove('blocked');
   document.querySelectorAll('.rail-station').forEach((s) => s.classList.remove('done', 'blocked'));
@@ -893,9 +1105,17 @@ async function runCompletedTrace(data) {
   lightStation(3);
   addStationCard(STATION_LABELS[3], [['Format:', 'ISO 20022–inspired'], ['Msg ID:', data.message.GrpHdr.MsgId]]);
 
+  // Feature: Payment sent confirmation — the rail still finishes its run
+  // visually (station 5 lights up), but the text feedback for "it's done"
+  // now lives in the success panel under the form instead of a station
+  // card here.
   await wait(500);
   lightStation(4);
-  addStationCard(STATION_LABELS[4], [['Status:', 'Completed']]);
+
+  if (pendingPaymentSummary) {
+    showSuccessPanel(pendingPaymentSummary);
+    pendingPaymentSummary = null;
+  }
 
   messageBlock.hidden = false;
   messageJsonEl.textContent = JSON.stringify(data.message, null, 2);
