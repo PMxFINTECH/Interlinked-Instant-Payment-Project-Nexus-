@@ -116,17 +116,15 @@ const confirmModalEls = buildConfirmModal();
 // Resolves true if the sender clicked Send, false for Cancel / Escape /
 // backdrop click. Listeners are attached and torn down per-call so repeat
 // opens never double-fire.
-function showConfirmModal({ recipientName, phone, countryName, amountText }) {
+function showConfirmModal({ recipientName, countryName, amountText }) {
   return new Promise((resolve) => {
     confirmModalEls.message.innerHTML = '';
     confirmModalEls.message.append(
-      'Send ',
+      'Would you like to send ',
       Object.assign(document.createElement('strong'), { textContent: amountText }),
       ' to ',
       Object.assign(document.createElement('strong'), { textContent: recipientName }),
-      ' · ',
-      phone,
-      ' · ',
+      ' from ',
       countryName,
       '?'
     );
@@ -855,6 +853,21 @@ function validateRecipientPhone() {
   return true;
 }
 
+// Side-effect-free version of the same check validateRecipientPhone runs —
+// used while the person is still typing, where we want to know "is this
+// number complete yet?" without flashing the red error hint on every
+// debounce tick before they've finished entering it.
+function isRecipientPhoneComplete(country) {
+  const value = recipientPhoneInput.value.trim();
+  if (!value) return false;
+
+  const compact = value.replace(/[\s-]/g, '');
+  if (!compact.startsWith(country.dialCode)) return false;
+
+  const nationalNumber = compact.slice(country.dialCode.length);
+  return /^\d+$/.test(nationalNumber) && nationalNumber.length === country.phoneDigits;
+}
+
 // Feature: Recipient Phone Number — the hint line under the field has two
 // states: a neutral "here's the format" guide (shown as soon as a country is
 // picked, and again once the number becomes valid) and a red validation
@@ -894,7 +907,7 @@ function hideRecipientPreview() {
 
 async function updateRecipientPreview() {
   const country = getCountryObj(recipientCountrySelect.value);
-  if (!country || !validateRecipientPhone()) {
+  if (!country || !isRecipientPhoneComplete(country)) {
     hideRecipientPreview();
     return;
   }
@@ -919,6 +932,17 @@ async function updateRecipientPreview() {
 }
 
 const debouncedUpdateRecipientPreview = debounce(updateRecipientPreview, 400);
+
+recipientPhoneInput.addEventListener('keydown', (e) => {
+  // Feature: Recipient Phone Number — group spacing is inserted
+  // automatically by applyPhoneMask below based on each country's format,
+  // so a manually typed space is never meaningful here. Blocking it
+  // outright (rather than stripping it after the fact) avoids the caret
+  // jumping around when the mask rewrites the field's value mid-type.
+  if (e.key === ' ') {
+    e.preventDefault();
+  }
+});
 
 recipientPhoneInput.addEventListener('input', () => {
   applyPhoneMask();
@@ -964,11 +988,9 @@ form.addEventListener('submit', async (e) => {
   const amountText = formatCurrency(rawAmount, senderCountry ? senderCountry.currency : '');
   const recipientNameForConfirm = recipientPreviewName.textContent || 'the recipient';
   const countryNameForConfirm = recipientCountry ? recipientCountry.name : recipientCountrySelect.value;
-  const phoneForConfirm = recipientPhoneInput.value.trim();
 
   const confirmed = await showConfirmModal({
     recipientName: recipientNameForConfirm,
-    phone: phoneForConfirm,
     countryName: countryNameForConfirm,
     amountText,
   });
