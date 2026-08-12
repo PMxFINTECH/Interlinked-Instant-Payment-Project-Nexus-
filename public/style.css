@@ -510,6 +510,183 @@ footer.page-footer {
   color: var(--danger);
 }
 
+/* Feature: Send confirmation — modal overlay shown after "Send payment" is
+   clicked, before the request actually fires. Backdrop click / Escape both
+   act as Cancel (handled in app.js). */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 12, 20, 0.72);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 20px;
+}
+
+.modal-overlay[hidden] {
+  display: none;
+}
+
+.modal-box {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  padding: 28px;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+}
+
+.modal-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 18px;
+  margin: 0 0 12px;
+  color: var(--text);
+}
+
+.modal-message {
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  margin: 0 0 24px;
+}
+
+.modal-message strong {
+  color: var(--text);
+  font-weight: 600;
+  font-family: var(--font-mono);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.modal-btn {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 14px;
+  border-radius: 8px;
+  padding: 10px 20px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: transform 0.1s ease, background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.modal-btn-secondary {
+  background: transparent;
+  border-color: var(--panel-border);
+  color: var(--text-muted);
+}
+
+.modal-btn-secondary:hover {
+  border-color: var(--text-muted);
+  color: var(--text);
+}
+
+.modal-btn-primary {
+  background: var(--accent);
+  color: #06120f;
+}
+
+.modal-btn-primary:hover {
+  background: #4fe0d5;
+}
+
+.modal-btn:active {
+  transform: scale(0.97);
+}
+
+body.modal-open {
+  overflow: hidden;
+}
+
+/* Feature: Payment sent confirmation — success panel inserted directly
+   under the sender/recipient form (.hub-panel), replacing the old
+   "Settled" station card feedback. */
+
+.success-panel {
+  margin-top: 24px;
+  background: var(--panel);
+  border: 1px solid var(--success);
+  border-radius: 12px;
+  padding: 20px 24px;
+  opacity: 0;
+  transform: translateY(6px);
+  animation: reveal 0.4s ease forwards;
+}
+
+.success-panel[hidden] {
+  display: none;
+}
+
+.success-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.success-panel-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--success);
+  color: #06120f;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.success-panel-header h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--success);
+  margin: 0;
+  flex: 1;
+}
+
+.success-panel-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+
+.success-panel-close:hover {
+  color: var(--text);
+}
+
+.success-panel-body p {
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  margin: 0 0 6px;
+  color: var(--text);
+}
+
+.success-panel-body p:last-child {
+  margin-bottom: 0;
+}
+
+.success-panel-body .label {
+  color: var(--text-muted);
+  margin-right: 6px;
+}
+
 /* Trace panel */
 
 .trace-panel {
@@ -691,13 +868,18 @@ footer.page-footer {
   .rail text {
     font-size: 9px;
   }
+
+  .modal-box {
+    padding: 22px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .rail-progress,
   .rail-station circle,
   .rail-station text,
-  .station-card {
+  .station-card,
+  .success-panel {
     transition: none;
     animation: none;
     opacity: 1;
