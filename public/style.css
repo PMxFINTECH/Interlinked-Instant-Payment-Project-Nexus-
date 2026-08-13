@@ -52,7 +52,7 @@ footer.page-footer {
 }
 
 .page-header {
-  padding-top: 200px;
+  padding-top: 240px;
   padding-bottom: 32px;
 }
 
@@ -86,7 +86,7 @@ footer.page-footer {
 }
 
 .subcopy {
-  font-family: var(--font-display);
+  font-family: 'Plus Jakarta Sans', sans-serif;
   font-weight: 500;
   color: var(--text-muted);
   max-width: 540px;
@@ -510,7 +510,8 @@ footer.page-footer {
   border-radius: 8px;
   padding: 12px 22px;
   cursor: pointer;
-  transition: transform 0.1s ease, background 0.15s ease;
+  box-shadow: 0 3px 0 var(--accent-dim);
+  transition: transform 0.08s ease, background 0.15s ease, box-shadow 0.08s ease;
 }
 
 #submitBtn:hover:not(:disabled) {
@@ -518,12 +519,14 @@ footer.page-footer {
 }
 
 #submitBtn:active:not(:disabled) {
-  transform: scale(0.98);
+  transform: translateY(3px);
+  box-shadow: 0 0 0 var(--accent-dim);
 }
 
 #submitBtn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 .submit-hint {
@@ -838,7 +841,7 @@ body.modal-open {
   }
 
   .page-header {
-    padding-top: 130px;
+    padding-top: 160px;
   }
 
   .page-header h1 {
