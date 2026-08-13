@@ -1042,7 +1042,7 @@ form.addEventListener('submit', async (e) => {
   }
 
   submitBtn.disabled = false;
-  submitBtn.textContent = 'Send payment →';
+  submitBtn.textContent = 'Send payment';
 });
 
 function resetTrace() {
