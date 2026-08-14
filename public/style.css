@@ -20,7 +20,7 @@
 }
 
 body {
-  margin: 1;
+  margin: 0;
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-body);
