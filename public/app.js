@@ -361,6 +361,13 @@ function setupCountryDropdown(containerId, selectEl) {
     selectEl.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
+  function reset(placeholder) {
+    selectEl.value = '';
+    triggerFlagSlot.innerHTML = '';
+    triggerLabel.textContent = placeholder;
+    list.querySelectorAll('li').forEach((li) => li.setAttribute('aria-selected', 'false'));
+  }
+
   function populate(countries) {
     list.innerHTML = '';
     countries.forEach((country) => {
@@ -412,7 +419,7 @@ function setupCountryDropdown(containerId, selectEl) {
     if (!container.contains(e.target)) close();
   });
 
-  return { populate };
+  return { populate, reset };
 }
 
 const senderCountryDropdown = setupCountryDropdown('senderCountryCustom', senderCountrySelect);
@@ -1115,4 +1122,30 @@ async function runCompletedTrace(data) {
     showSuccessPanel(pendingPaymentSummary);
     pendingPaymentSummary = null;
   }
+
+  resetForm();
+}
+
+// Feature: Payment sent confirmation — once the money's on its way, clear
+// every field so the form is ready for the next payment rather than
+// leaving the last recipient's details sitting on screen.
+function resetForm() {
+  document.getElementById('senderName').value = '';
+  senderCountryDropdown.reset('Select country');
+  senderCurrencyPrefix.textContent = '—';
+  senderBankDropdown.reset('Select country first');
+  senderBankDropdown.setDisabled(true);
+
+  amountInput.value = '';
+  fxRateLine.hidden = true;
+  fxRateLine.textContent = '';
+  convertedAmountWrapper.hidden = true;
+  convertedAmountInput.value = '';
+
+  recipientCountryDropdown.reset('Select country');
+  recipientPhoneInput.value = '';
+  recipientPhoneInput.disabled = true;
+  recipientPhoneInput.placeholder = 'Select country first';
+  clearPhoneHint();
+  hideRecipientPreview();
 }
