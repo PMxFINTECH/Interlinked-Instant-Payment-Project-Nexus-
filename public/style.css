@@ -42,13 +42,27 @@ body {
 }
 
 header.page-header,
-main,
 footer.page-footer {
   position: relative;
   z-index: 1;
   max-width: 960px;
   margin: 0 auto;
   padding: 0 24px;
+}
+
+main {
+  position: relative;
+  z-index: 1;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.page-layout {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 32px;
+  align-items: start;
 }
 
 .page-header {
@@ -568,9 +582,9 @@ footer.page-footer {
 .modal-box {
   background: var(--panel);
   border: 1px solid var(--panel-border);
-  border-radius: 12px;
-  padding: 28px;
-  max-width: 420px;
+  border-radius: 16px;
+  padding: 56px;
+  max-width: 840px;
   width: 100%;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
 }
@@ -578,17 +592,17 @@ footer.page-footer {
 .modal-title {
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: 18px;
-  margin: 0 0 12px;
+  font-size: 36px;
+  margin: 0 0 24px;
   color: var(--text);
 }
 
 .modal-message {
   font-family: var(--font-body);
-  font-size: 14px;
+  font-size: 28px;
   line-height: 1.6;
   color: var(--text-muted);
-  margin: 0 0 24px;
+  margin: 0 0 48px;
 }
 
 .modal-message strong {
@@ -600,29 +614,29 @@ footer.page-footer {
 .modal-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
+  gap: 20px;
 }
 
 .modal-btn {
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: 14px;
-  border-radius: 8px;
-  padding: 10px 20px;
+  font-size: 18px;
+  border-radius: 10px;
+  padding: 16px 32px;
   cursor: pointer;
   border: 1px solid transparent;
   transition: transform 0.1s ease, background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .modal-btn-secondary {
-  background: transparent;
-  border-color: var(--panel-border);
-  color: var(--text-muted);
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #ffffff;
 }
 
 .modal-btn-secondary:hover {
-  border-color: var(--text-muted);
-  color: var(--text);
+  background: #e0304a;
+  border-color: #e0304a;
 }
 
 .modal-btn-primary {
@@ -829,6 +843,10 @@ body.modal-open {
 /* Mobile */
 
 @media (max-width: 720px) {
+  .page-layout {
+    grid-template-columns: 1fr;
+  }
+
   .hub-panel {
     grid-template-columns: 1fr;
     grid-template-rows: none;
@@ -872,6 +890,21 @@ body.modal-open {
 
   .modal-box {
     padding: 22px;
+  }
+
+  .modal-title {
+    font-size: 22px;
+    margin-bottom: 14px;
+  }
+
+  .modal-message {
+    font-size: 16px;
+    margin-bottom: 28px;
+  }
+
+  .modal-btn {
+    font-size: 15px;
+    padding: 12px 20px;
   }
 }
 
