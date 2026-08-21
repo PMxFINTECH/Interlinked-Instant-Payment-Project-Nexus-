@@ -577,8 +577,8 @@ footer.page-footer {
   background: var(--panel);
   border: 1px solid var(--panel-border);
   border-radius: 16px;
-  padding: 56px;
-  max-width: 840px;
+  padding: 36px 32px;
+  max-width: 560px;
   width: 100%;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
 }
@@ -586,7 +586,7 @@ footer.page-footer {
 .modal-title {
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: 22px;
+  font-size: 20px;
   margin: 0 0 16px;
   color: var(--text);
 }
@@ -655,46 +655,67 @@ body.modal-open {
 }
 
 .confirm-title {
-  margin-bottom: 28px;
+  margin-bottom: 20px;
+}
+
+.confirm-amount-box {
+  border: 1.5px dashed rgba(231, 236, 245, 0.28);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 22px 16px;
+  margin: 0 0 16px;
 }
 
 .confirm-amount {
   font-family: var(--font-mono);
-  font-size: 40px;
+  font-size: 30px;
   font-weight: 700;
   color: var(--text);
   letter-spacing: -0.01em;
-  margin: 0 0 20px;
 }
 
-.confirm-line {
-  margin: 0 0 6px;
-  font-family: var(--font-body);
+.confirm-details-box {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  padding: 6px 18px;
+  margin: 0 0 24px;
+  text-align: left;
 }
 
-.confirm-name {
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--text);
-  font-family: var(--font-display);
+.confirm-detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  font-size: 14px;
 }
 
-.confirm-country {
-  font-size: 15px;
+.confirm-detail-row + .confirm-detail-row {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.confirm-detail-label {
   color: var(--text-muted);
-  margin-bottom: 32px;
+}
+
+.confirm-detail-value {
+  color: var(--text);
+  font-weight: 600;
+  font-family: var(--font-mono);
+  text-align: right;
 }
 
 .confirm-actions {
   flex-direction: column;
-  gap: 12px;
-  margin-top: 8px;
+  gap: 10px;
+  margin-top: 0;
 }
 
 .confirm-btn {
   width: 100%;
-  padding: 14px;
-  font-size: 15px;
+  padding: 13px;
+  font-size: 14px;
   border-radius: 999px;
 }
 
@@ -818,7 +839,7 @@ body.modal-open {
 
 .progress-track {
   position: relative;
-  height: 10px;
+  height: 34px;
   border-radius: 999px;
   background: var(--panel-border);
   overflow: hidden;
@@ -837,22 +858,17 @@ body.modal-open {
   background: linear-gradient(90deg, var(--danger), #c23350);
 }
 
-.progress-steps {
+.progress-dots {
+  position: absolute;
+  inset: 0;
   display: flex;
-  justify-content: space-between;
-  margin-top: 16px;
-}
-
-.progress-step {
-  display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 8px;
-  flex: 1;
-  text-align: center;
+  justify-content: space-between;
+  padding: 0 4px;
+  z-index: 2;
 }
 
-.progress-step-dot {
+.progress-dot {
   width: 26px;
   height: 26px;
   border-radius: 50%;
@@ -861,44 +877,53 @@ body.modal-open {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   transition: background 0.3s ease, border-color 0.3s ease, transform 0.3s ease;
 }
 
-.progress-step-check {
+.progress-dot-check {
   font-size: 12px;
   font-weight: 700;
   color: transparent;
   transition: color 0.2s ease;
 }
 
-.progress-step.done .progress-step-dot {
+.progress-dot.done {
   background: var(--accent);
   border-color: var(--accent);
   transform: scale(1.08);
 }
 
-.progress-step.done .progress-step-check {
+.progress-dot.done .progress-dot-check {
   color: #06120f;
 }
 
-.progress-step.blocked .progress-step-dot {
+.progress-dot.blocked {
   background: var(--danger);
   border-color: var(--danger);
 }
 
-.progress-step.blocked .progress-step-check {
+.progress-dot.blocked .progress-dot-check {
   color: #ffffff;
 }
 
-.progress-step-label {
+.progress-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 12px;
+}
+
+.progress-label {
+  flex: 1;
+  text-align: center;
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-muted);
   transition: color 0.3s ease;
 }
 
-.progress-step.done .progress-step-label,
-.progress-step.blocked .progress-step-label {
+.progress-label.done,
+.progress-label.blocked {
   color: var(--text);
 }
 
@@ -965,8 +990,17 @@ body.modal-open {
     font-size: 30px;
   }
 
-  .progress-step-label {
+  .progress-label {
     font-size: 9px;
+  }
+
+  .progress-track {
+    height: 28px;
+  }
+
+  .progress-dot {
+    width: 22px;
+    height: 22px;
   }
 
   .modal-box {
@@ -974,18 +1008,18 @@ body.modal-open {
   }
 
   .confirm-amount {
-    font-size: 28px;
+    font-size: 24px;
   }
 
-  .confirm-name {
-    font-size: 17px;
+  .confirm-detail-value {
+    font-size: 13px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .progress-fill,
-  .progress-step-dot,
-  .progress-step-label,
+  .progress-dot,
+  .progress-label,
   .success-panel,
   .recipient-preview,
   .progress-row {
