@@ -42,20 +42,14 @@ body {
 }
 
 header.page-header,
+main,
 footer.page-footer {
   position: relative;
   z-index: 1;
-  max-width: 960px;
+  width: 100%;
+  max-width: 2400px;
   margin: 0 auto;
-  padding: 0 24px;
-}
-
-main {
-  position: relative;
-  z-index: 1;
-  max-width: 1440px;
-  margin: 0 auto;
-  padding: 0 24px;
+  padding: 0 64px;
 }
 
 .page-layout {
@@ -592,17 +586,17 @@ main {
 .modal-title {
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: 36px;
-  margin: 0 0 24px;
+  font-size: 22px;
+  margin: 0 0 16px;
   color: var(--text);
 }
 
 .modal-message {
   font-family: var(--font-body);
-  font-size: 28px;
+  font-size: 16px;
   line-height: 1.6;
   color: var(--text-muted);
-  margin: 0 0 48px;
+  margin: 0 0 32px;
 }
 
 .modal-message strong {
@@ -614,15 +608,15 @@ main {
 .modal-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 20px;
+  gap: 12px;
 }
 
 .modal-btn {
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: 18px;
-  border-radius: 10px;
-  padding: 16px 32px;
+  font-size: 14px;
+  border-radius: 8px;
+  padding: 10px 22px;
   cursor: pointer;
   border: 1px solid transparent;
   transition: transform 0.1s ease, background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
@@ -890,21 +884,6 @@ body.modal-open {
 
   .modal-box {
     padding: 22px;
-  }
-
-  .modal-title {
-    font-size: 22px;
-    margin-bottom: 14px;
-  }
-
-  .modal-message {
-    font-size: 16px;
-    margin-bottom: 28px;
-  }
-
-  .modal-btn {
-    font-size: 15px;
-    padding: 12px 20px;
   }
 }
 
