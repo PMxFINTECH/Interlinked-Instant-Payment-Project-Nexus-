@@ -82,14 +82,33 @@ function buildConfirmModal() {
   title.className = 'modal-title confirm-title';
   title.textContent = 'Payment Confirmation';
 
+  const amountBox = document.createElement('div');
+  amountBox.className = 'confirm-amount-box';
+
   const amount = document.createElement('div');
   amount.className = 'confirm-amount';
+  amountBox.appendChild(amount);
 
-  const name = document.createElement('p');
-  name.className = 'confirm-line confirm-name';
+  const detailsBox = document.createElement('div');
+  detailsBox.className = 'confirm-details-box';
 
-  const country = document.createElement('p');
-  country.className = 'confirm-line confirm-country';
+  function buildDetailRow(labelText) {
+    const row = document.createElement('p');
+    row.className = 'confirm-detail-row';
+    const label = document.createElement('span');
+    label.className = 'confirm-detail-label';
+    label.textContent = labelText;
+    const value = document.createElement('span');
+    value.className = 'confirm-detail-value';
+    row.appendChild(label);
+    row.appendChild(value);
+    detailsBox.appendChild(row);
+    return value;
+  }
+
+  const nameValue = buildDetailRow('Name');
+  const currencyValue = buildDetailRow('Currency');
+  const countryValue = buildDetailRow('Country');
 
   const actions = document.createElement('div');
   actions.className = 'modal-actions confirm-actions';
@@ -107,14 +126,13 @@ function buildConfirmModal() {
   actions.appendChild(sendBtn);
   actions.appendChild(cancelBtn);
   box.appendChild(title);
-  box.appendChild(amount);
-  box.appendChild(name);
-  box.appendChild(country);
+  box.appendChild(amountBox);
+  box.appendChild(detailsBox);
   box.appendChild(actions);
   overlay.appendChild(box);
   document.body.appendChild(overlay);
 
-  return { overlay, amount, name, country, cancelBtn, sendBtn };
+  return { overlay, amount, nameValue, currencyValue, countryValue, cancelBtn, sendBtn };
 }
 
 const confirmModalEls = buildConfirmModal();
@@ -122,11 +140,12 @@ const confirmModalEls = buildConfirmModal();
 // Resolves true if the sender clicked Send, false for Cancel / Escape /
 // backdrop click. Listeners are attached and torn down per-call so repeat
 // opens never double-fire.
-function showConfirmModal({ recipientName, countryName, amountText }) {
+function showConfirmModal({ recipientName, countryName, currencyCode, amountText }) {
   return new Promise((resolve) => {
     confirmModalEls.amount.textContent = amountText;
-    confirmModalEls.name.textContent = recipientName;
-    confirmModalEls.country.textContent = countryName;
+    confirmModalEls.nameValue.textContent = recipientName;
+    confirmModalEls.currencyValue.textContent = currencyCode;
+    confirmModalEls.countryValue.textContent = countryName;
 
     confirmModalEls.overlay.hidden = false;
     document.body.classList.add('modal-open');
@@ -992,6 +1011,7 @@ form.addEventListener('submit', async (e) => {
   const confirmed = await showConfirmModal({
     recipientName: recipientNameForConfirm,
     countryName: countryNameForConfirm,
+    currencyCode: recipientCountry ? recipientCountry.currency : '',
     amountText: recipientAmountText,
   });
 
@@ -1050,7 +1070,8 @@ function resetTrace() {
   hideSuccessPanel();
   progressFill.style.width = '0%';
   progressFill.classList.remove('blocked');
-  document.querySelectorAll('.progress-step').forEach((s) => s.classList.remove('done', 'blocked'));
+  document.querySelectorAll('.progress-dot').forEach((s) => s.classList.remove('done', 'blocked'));
+  document.querySelectorAll('.progress-label').forEach((s) => s.classList.remove('done', 'blocked'));
 }
 
 function wait(ms) {
@@ -1058,8 +1079,9 @@ function wait(ms) {
 }
 
 function lightStation(index, blocked = false) {
-  const stepEl = document.querySelector(`.progress-step[data-station="${index}"]`);
-  stepEl.classList.add(blocked ? 'blocked' : 'done');
+  const statusClass = blocked ? 'blocked' : 'done';
+  document.querySelector(`.progress-dot[data-station="${index}"]`).classList.add(statusClass);
+  document.querySelector(`.progress-label[data-station="${index}"]`).classList.add(statusClass);
   progressFill.style.width = `${(index / (STATION_LABELS.length - 1)) * 100}%`;
   if (blocked) progressFill.classList.add('blocked');
 }
