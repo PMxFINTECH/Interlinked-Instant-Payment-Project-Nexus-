@@ -594,28 +594,6 @@ footer.page-footer {
   overflow: hidden;
 }
 
-.modal-box::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: linear-gradient(90deg, var(--accent), #7c5cff, var(--accent));
-  background-size: 200% 100%;
-  animation: shimmerBar 4s linear infinite;
-  pointer-events: none;
-}
-
-@keyframes shimmerBar {
-  0% {
-    background-position: 0% 0%;
-  }
-  100% {
-    background-position: 200% 0%;
-  }
-}
-
 .modal-title {
   font-family: var(--font-display);
   font-weight: 600;
@@ -656,14 +634,14 @@ footer.page-footer {
 }
 
 .modal-btn-secondary {
-  background: var(--danger);
-  border-color: var(--danger);
-  color: #ffffff;
+  background: transparent;
+  border-color: rgba(15, 113, 240, 0.5);
+  color: var(--accent);
 }
 
 .modal-btn-secondary:hover {
-  background: #e0304a;
-  border-color: #e0304a;
+  background: rgba(15, 113, 240, 0.12);
+  border-color: var(--accent);
 }
 
 .modal-btn-primary {
@@ -692,10 +670,10 @@ body.modal-open {
 }
 
 .confirm-amount-box {
-  border: 1.5px dashed rgba(15, 113, 240, 0.6);
+  border: 1.5px dashed rgba(15, 113, 240, 0.4);
   border-radius: 12px;
-  background: radial-gradient(120% 140% at 50% 0%, rgba(15, 113, 240, 0.32), rgba(124, 92, 255, 0.14) 55%, rgba(255, 255, 255, 0.02) 100%);
-  box-shadow: 0 0 40px -8px rgba(15, 113, 240, 0.6);
+  background: radial-gradient(120% 140% at 50% 0%, rgba(15, 113, 240, 0.2), rgba(124, 92, 255, 0.08) 55%, rgba(255, 255, 255, 0.02) 100%);
+  box-shadow: 0 0 26px -10px rgba(15, 113, 240, 0.4);
   padding: 22px 16px;
   margin: 0 0 16px;
   animation: amountGlowPulse 3s ease-in-out infinite;
@@ -703,14 +681,13 @@ body.modal-open {
 
 @keyframes amountGlowPulse {
   0%, 100% {
-    box-shadow: 0 0 40px -8px rgba(15, 113, 240, 0.55);
-    border-color: rgba(15, 113, 240, 0.55);
+    box-shadow: 0 0 26px -10px rgba(15, 113, 240, 0.35);
+    border-color: rgba(15, 113, 240, 0.4);
   }
   50% {
-    box-shadow: 0 0 52px -6px rgba(15, 113, 240, 0.8);
-    border-color: rgba(124, 92, 255, 0.75);
+    box-shadow: 0 0 34px -8px rgba(15, 113, 240, 0.5);
+    border-color: rgba(124, 92, 255, 0.5);
   }
-}
 }
 
 .confirm-amount {
@@ -1075,7 +1052,6 @@ body.modal-open {
   .success-panel,
   .recipient-preview,
   .progress-row,
-  .modal-box::before,
   .confirm-amount-box {
     transition: none;
     animation: none;
