@@ -60,8 +60,8 @@ footer.page-footer {
 }
 
 .page-header {
-  padding-top: 240px;
-  padding-bottom: 32px;
+  padding-top: 120px;
+  padding-bottom: 24px;
 }
 
 .eyebrow {
@@ -508,8 +508,8 @@ footer.page-footer {
   display: flex;
   align-items: center;
   gap: 16px;
-  margin-top: 28px;
-  padding-top: 24px;
+  margin-top: 20px;
+  padding-top: 16px;
   border-top: 1px solid var(--panel-border);
 }
 
@@ -650,6 +650,54 @@ body.modal-open {
   overflow: hidden;
 }
 
+.confirm-box {
+  text-align: center;
+}
+
+.confirm-title {
+  margin-bottom: 28px;
+}
+
+.confirm-amount {
+  font-family: var(--font-mono);
+  font-size: 40px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.01em;
+  margin: 0 0 20px;
+}
+
+.confirm-line {
+  margin: 0 0 6px;
+  font-family: var(--font-body);
+}
+
+.confirm-name {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text);
+  font-family: var(--font-display);
+}
+
+.confirm-country {
+  font-size: 15px;
+  color: var(--text-muted);
+  margin-bottom: 32px;
+}
+
+.confirm-actions {
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.confirm-btn {
+  width: 100%;
+  padding: 14px;
+  font-size: 15px;
+  border-radius: 999px;
+}
+
 /* Feature: Payment sent confirmation — success panel inserted directly
    under the sender/recipient form (.hub-panel), replacing the old
    "Settled" station card feedback. */
@@ -741,16 +789,18 @@ body.modal-open {
   margin-right: 6px;
 }
 
-/* Payment trace — now just the rail, living inside the hub-panel form
-   directly under the submit row rather than in its own boxed section. */
+/* Payment trace — a fluid segmented pill progress bar living inside the
+   hub-panel form directly under the submit row. Replaces the old SVG rail
+   line; the gradient fill sweeps left-to-right and each step's dot fills
+   in with a checkmark as it completes. */
 
-.rail-row {
+.progress-row {
   grid-column: 1 / -1;
   margin-top: 24px;
   background: #101d30;
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 12px;
-  padding: 22px 24px 12px;
+  padding: 26px 24px 20px;
   box-shadow:
     0 20px 44px -18px rgba(0, 0, 0, 0.55),
     0 2px 6px rgba(0, 0, 0, 0.25);
@@ -759,61 +809,97 @@ body.modal-open {
   animation: reveal 0.4s ease forwards;
 }
 
-.rail-row[hidden] {
+.progress-row[hidden] {
   display: none;
   opacity: 0;
   transform: none;
   animation: none;
 }
 
-.rail {
-  width: 100%;
-  height: auto;
-  overflow: visible;
+.progress-track {
+  position: relative;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--panel-border);
+  overflow: hidden;
 }
 
-.rail-track {
-  stroke: var(--panel-border);
-  stroke-width: 2;
+.progress-fill {
+  position: absolute;
+  inset: 0;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), #7c5cff);
+  transition: width 0.6s ease;
 }
 
-.rail-progress {
-  stroke: var(--accent);
-  stroke-width: 2;
-  transition: x2 0.5s ease;
+.progress-fill.blocked {
+  background: linear-gradient(90deg, var(--danger), #c23350);
 }
 
-.rail-progress.blocked {
-  stroke: var(--danger);
+.progress-steps {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 16px;
 }
 
-.rail-station circle {
-  fill: #0e1826;
-  stroke: var(--panel-border);
-  stroke-width: 2;
-  transition: fill 0.3s ease, stroke 0.3s ease;
+.progress-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  text-align: center;
 }
 
-.rail-station.done circle {
-  fill: var(--accent);
-  stroke: var(--accent);
+.progress-step-dot {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #0e1826;
+  border: 2px solid var(--panel-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.3s ease, border-color 0.3s ease, transform 0.3s ease;
 }
 
-.rail-station.blocked circle {
-  fill: var(--danger);
-  stroke: var(--danger);
+.progress-step-check {
+  font-size: 12px;
+  font-weight: 700;
+  color: transparent;
+  transition: color 0.2s ease;
 }
 
-.rail-station text {
+.progress-step.done .progress-step-dot {
+  background: var(--accent);
+  border-color: var(--accent);
+  transform: scale(1.08);
+}
+
+.progress-step.done .progress-step-check {
+  color: #06120f;
+}
+
+.progress-step.blocked .progress-step-dot {
+  background: var(--danger);
+  border-color: var(--danger);
+}
+
+.progress-step.blocked .progress-step-check {
+  color: #ffffff;
+}
+
+.progress-step-label {
   font-family: var(--font-mono);
   font-size: 11px;
-  fill: var(--text-muted);
-  text-anchor: middle;
-  transition: fill 0.3s ease;
+  color: var(--text-muted);
+  transition: color 0.3s ease;
 }
 
-.rail-station.done text {
-  fill: var(--text);
+.progress-step.done .progress-step-label,
+.progress-step.blocked .progress-step-label {
+  color: var(--text);
 }
 
 @keyframes reveal {
@@ -827,6 +913,7 @@ body.modal-open {
   margin-top: 56px;
   padding-bottom: 40px;
 }
+
 
 .page-footer p {
   font-size: 12px;
@@ -871,29 +958,37 @@ body.modal-open {
   }
 
   .page-header {
-    padding-top: 160px;
+    padding-top: 90px;
   }
 
   .page-header h1 {
     font-size: 30px;
   }
 
-  .rail text {
+  .progress-step-label {
     font-size: 9px;
   }
 
   .modal-box {
     padding: 22px;
   }
+
+  .confirm-amount {
+    font-size: 28px;
+  }
+
+  .confirm-name {
+    font-size: 17px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rail-progress,
-  .rail-station circle,
-  .rail-station text,
+  .progress-fill,
+  .progress-step-dot,
+  .progress-step-label,
   .success-panel,
   .recipient-preview,
-  .rail-row {
+  .progress-row {
     transition: none;
     animation: none;
     opacity: 1;
