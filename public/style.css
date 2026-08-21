@@ -100,7 +100,9 @@ footer.page-footer {
 .hub-panel {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
-  gap: 0;
+  grid-template-rows: repeat(6, auto);
+  row-gap: 18px;
+  column-gap: 0;
   background: var(--panel);
   border: 1px solid var(--panel-border);
   border-radius: 12px;
@@ -109,9 +111,10 @@ footer.page-footer {
 }
 
 .hub-column {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: subgrid;
+  grid-row: 1 / -1;
   padding: 0 16px;
 }
 
@@ -473,6 +476,7 @@ footer.page-footer {
   flex-direction: column;
   align-items: center;
   padding-top: 26px;
+  grid-row: 1 / -1;
 }
 
 .hub-node {
@@ -492,6 +496,7 @@ footer.page-footer {
 
 .submit-row {
   grid-column: 1 / -1;
+  grid-row: 7;
   display: flex;
   align-items: center;
   gap: 16px;
@@ -826,11 +831,24 @@ body.modal-open {
 @media (max-width: 720px) {
   .hub-panel {
     grid-template-columns: 1fr;
+    grid-template-rows: none;
+    row-gap: 24px;
+  }
+
+  .hub-column {
+    grid-template-rows: none;
+    grid-row: auto;
+    row-gap: 18px;
   }
 
   .hub-divider {
+    grid-row: auto;
     flex-direction: row;
     padding: 8px 0;
+  }
+
+  .submit-row {
+    grid-row: auto;
   }
 
   .hub-line {
