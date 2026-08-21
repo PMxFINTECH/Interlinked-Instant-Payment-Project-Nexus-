@@ -52,14 +52,12 @@ const form = document.getElementById('payment-form');
 const submitBtn = document.getElementById('submitBtn');
 const submitHint = document.getElementById('submitHint');
 
-// UX restructure: the payment trace is now just the rail (svg), living
-// directly under the submit row inside the same hub-panel card. The old
-// station-cards detail list and the ISO 20022 message toggle/JSON block
-// have been removed entirely — see runBlockedTrace / runCompletedTrace.
+// UX restructure: the payment trace is now a fluid segmented pill progress
+// bar (gradient fill + checkmark steps), living directly under the submit
+// row inside the same hub-panel card, replacing the old SVG rail line.
 const trace = document.getElementById('trace');
-const railProgress = document.getElementById('rail-progress');
+const progressFill = document.getElementById('progressFill');
 
-const STATION_X = [60, 255, 450, 645, 840];
 const STATION_LABELS = ['Compliance', 'Proxy resolution', 'FX conversion', 'Message translation', 'Settled'];
 
 // ---------- Feature: Send confirmation ----------
@@ -74,41 +72,49 @@ function buildConfirmModal() {
   overlay.hidden = true;
 
   const box = document.createElement('div');
-  box.className = 'modal-box';
+  box.className = 'modal-box confirm-box';
   box.setAttribute('role', 'dialog');
   box.setAttribute('aria-modal', 'true');
   box.setAttribute('aria-labelledby', 'confirmModalTitle');
 
   const title = document.createElement('h3');
   title.id = 'confirmModalTitle';
-  title.className = 'modal-title';
-  title.textContent = 'Confirm payment';
+  title.className = 'modal-title confirm-title';
+  title.textContent = 'Payment Confirmation';
 
-  const message = document.createElement('p');
-  message.className = 'modal-message';
+  const amount = document.createElement('div');
+  amount.className = 'confirm-amount';
+
+  const name = document.createElement('p');
+  name.className = 'confirm-line confirm-name';
+
+  const country = document.createElement('p');
+  country.className = 'confirm-line confirm-country';
 
   const actions = document.createElement('div');
-  actions.className = 'modal-actions';
-
-  const cancelBtn = document.createElement('button');
-  cancelBtn.type = 'button';
-  cancelBtn.className = 'modal-btn modal-btn-secondary';
-  cancelBtn.textContent = 'Cancel';
+  actions.className = 'modal-actions confirm-actions';
 
   const sendBtn = document.createElement('button');
   sendBtn.type = 'button';
-  sendBtn.className = 'modal-btn modal-btn-primary';
-  sendBtn.textContent = 'Send';
+  sendBtn.className = 'modal-btn modal-btn-primary confirm-btn';
+  sendBtn.textContent = 'Send Payment';
 
-  actions.appendChild(cancelBtn);
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.className = 'modal-btn modal-btn-secondary confirm-btn';
+  cancelBtn.textContent = 'Cancel Payment';
+
   actions.appendChild(sendBtn);
+  actions.appendChild(cancelBtn);
   box.appendChild(title);
-  box.appendChild(message);
+  box.appendChild(amount);
+  box.appendChild(name);
+  box.appendChild(country);
   box.appendChild(actions);
   overlay.appendChild(box);
   document.body.appendChild(overlay);
 
-  return { overlay, message, cancelBtn, sendBtn };
+  return { overlay, amount, name, country, cancelBtn, sendBtn };
 }
 
 const confirmModalEls = buildConfirmModal();
@@ -118,16 +124,9 @@ const confirmModalEls = buildConfirmModal();
 // opens never double-fire.
 function showConfirmModal({ recipientName, countryName, amountText }) {
   return new Promise((resolve) => {
-    confirmModalEls.message.innerHTML = '';
-    confirmModalEls.message.append(
-      'Please confirm your payment to ',
-      Object.assign(document.createElement('strong'), { textContent: recipientName }),
-      ' from ',
-      Object.assign(document.createElement('strong'), { textContent: countryName }),
-      ' of ',
-      Object.assign(document.createElement('strong'), { textContent: amountText }),
-      '.'
-    );
+    confirmModalEls.amount.textContent = amountText;
+    confirmModalEls.name.textContent = recipientName;
+    confirmModalEls.country.textContent = countryName;
 
     confirmModalEls.overlay.hidden = false;
     document.body.classList.add('modal-open');
@@ -985,8 +984,8 @@ form.addEventListener('submit', async (e) => {
   // has a chance to double-check who it's going to.
   const senderCountry = getCountryObj(senderCountrySelect.value);
   const recipientCountry = getCountryObj(recipientCountrySelect.value);
-  const amountText = formatCurrency(rawAmount, senderCountry ? senderCountry.currency : '');
-  const recipientAmountText = convertedAmountInput.value || amountText;
+  const senderAmountText = formatCurrency(rawAmount, senderCountry ? senderCountry.currency : '');
+  const recipientAmountText = convertedAmountInput.value || senderAmountText;
   const recipientNameForConfirm = recipientPreviewName.textContent || 'the recipient';
   const countryNameForConfirm = recipientCountry ? recipientCountry.name : recipientCountrySelect.value;
 
@@ -1004,7 +1003,7 @@ form.addEventListener('submit', async (e) => {
   pendingPaymentSummary = {
     recipientName: recipientNameForConfirm,
     countryName: countryNameForConfirm,
-    amountText,
+    amountText: recipientAmountText,
   };
 
   submitBtn.disabled = true;
@@ -1049,9 +1048,9 @@ form.addEventListener('submit', async (e) => {
 function resetTrace() {
   trace.hidden = false;
   hideSuccessPanel();
-  railProgress.setAttribute('x2', STATION_X[0]);
-  railProgress.classList.remove('blocked');
-  document.querySelectorAll('.rail-station').forEach((s) => s.classList.remove('done', 'blocked'));
+  progressFill.style.width = '0%';
+  progressFill.classList.remove('blocked');
+  document.querySelectorAll('.progress-step').forEach((s) => s.classList.remove('done', 'blocked'));
 }
 
 function wait(ms) {
@@ -1059,10 +1058,10 @@ function wait(ms) {
 }
 
 function lightStation(index, blocked = false) {
-  const stationEl = document.querySelector(`.rail-station[data-station="${index}"]`);
-  stationEl.classList.add(blocked ? 'blocked' : 'done');
-  railProgress.setAttribute('x2', STATION_X[index]);
-  if (blocked) railProgress.classList.add('blocked');
+  const stepEl = document.querySelector(`.progress-step[data-station="${index}"]`);
+  stepEl.classList.add(blocked ? 'blocked' : 'done');
+  progressFill.style.width = `${(index / (STATION_LABELS.length - 1)) * 100}%`;
+  if (blocked) progressFill.classList.add('blocked');
 }
 
 async function runBlockedTrace(data) {
