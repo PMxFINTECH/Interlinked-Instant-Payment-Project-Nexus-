@@ -120,13 +120,13 @@ function showConfirmModal({ recipientName, countryName, amountText }) {
   return new Promise((resolve) => {
     confirmModalEls.message.innerHTML = '';
     confirmModalEls.message.append(
-      'Would you like to send ',
-      Object.assign(document.createElement('strong'), { textContent: amountText }),
-      ' to ',
+      'Please confirm your payment to ',
       Object.assign(document.createElement('strong'), { textContent: recipientName }),
       ' from ',
-      countryName,
-      '?'
+      Object.assign(document.createElement('strong'), { textContent: countryName }),
+      ' of ',
+      Object.assign(document.createElement('strong'), { textContent: amountText }),
+      '.'
     );
 
     confirmModalEls.overlay.hidden = false;
@@ -986,13 +986,14 @@ form.addEventListener('submit', async (e) => {
   const senderCountry = getCountryObj(senderCountrySelect.value);
   const recipientCountry = getCountryObj(recipientCountrySelect.value);
   const amountText = formatCurrency(rawAmount, senderCountry ? senderCountry.currency : '');
+  const recipientAmountText = convertedAmountInput.value || amountText;
   const recipientNameForConfirm = recipientPreviewName.textContent || 'the recipient';
   const countryNameForConfirm = recipientCountry ? recipientCountry.name : recipientCountrySelect.value;
 
   const confirmed = await showConfirmModal({
     recipientName: recipientNameForConfirm,
     countryName: countryNameForConfirm,
-    amountText,
+    amountText: recipientAmountText,
   });
 
   if (!confirmed) {
