@@ -863,9 +863,13 @@ body.modal-open {
   inset: 0;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 4px;
   z-index: 2;
+}
+
+.progress-dot-slot {
+  flex: 1;
+  display: flex;
+  justify-content: center;
 }
 
 .progress-dot {
@@ -895,7 +899,7 @@ body.modal-open {
 }
 
 .progress-dot.done .progress-dot-check {
-  color: #06120f;
+  color: #ffffff;
 }
 
 .progress-dot.blocked {
