@@ -225,35 +225,47 @@ function buildSuccessPanel() {
   header.appendChild(heading);
   header.appendChild(closeBtn);
 
+  const amountEyebrow = document.createElement('p');
+  amountEyebrow.className = 'success-panel-eyebrow';
+  amountEyebrow.textContent = 'Amount sent';
+
+  const amount = document.createElement('div');
+  amount.className = 'success-panel-amount';
+
   const body = document.createElement('div');
   body.className = 'success-panel-body';
 
   panel.appendChild(header);
+  panel.appendChild(amountEyebrow);
+  panel.appendChild(amount);
   panel.appendChild(body);
 
   // form === .hub-panel (the sender/recipient info box), so this lands
   // immediately below it — below the whole form now, including the rail.
   form.insertAdjacentElement('afterend', panel);
 
-  return { panel, body };
+  return { panel, amount, body };
 }
 
 const successPanelEls = buildSuccessPanel();
 
 function showSuccessPanel({ recipientName, countryName, amountText }) {
+  successPanelEls.amount.textContent = amountText;
+
   successPanelEls.body.innerHTML = '';
   const rows = [
-    ['Recipient:', recipientName],
-    ['Country:', countryName],
-    ['Amount sent:', amountText],
+    ['Recipient', recipientName],
+    ['Country', countryName],
   ];
   rows.forEach(([label, value]) => {
     const p = document.createElement('p');
     const labelSpan = document.createElement('span');
     labelSpan.className = 'label';
     labelSpan.textContent = label;
+    const valueSpan = document.createElement('span');
+    valueSpan.textContent = value;
     p.appendChild(labelSpan);
-    p.appendChild(document.createTextNode(value));
+    p.appendChild(valueSpan);
     successPanelEls.body.appendChild(p);
   });
   successPanelEls.panel.hidden = false;
