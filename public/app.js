@@ -85,9 +85,18 @@ function buildConfirmModal() {
   const amountBox = document.createElement('div');
   amountBox.className = 'confirm-amount-box';
 
+  const amountEyebrow = document.createElement('span');
+  amountEyebrow.className = 'confirm-amount-eyebrow';
+  amountEyebrow.textContent = 'Recipient receives';
+  amountBox.appendChild(amountEyebrow);
+
   const amount = document.createElement('div');
   amount.className = 'confirm-amount';
   amountBox.appendChild(amount);
+
+  const amountDivider = document.createElement('hr');
+  amountDivider.className = 'confirm-amount-divider';
+  amountBox.appendChild(amountDivider);
 
   const detailsBox = document.createElement('div');
   detailsBox.className = 'confirm-details-box';
