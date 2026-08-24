@@ -67,24 +67,16 @@ footer.page-footer {
 .eyebrow {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-family: var(--font-body);
-  font-weight: 600;
-  font-size: 11.5px;
-  letter-spacing: 0.1em;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--text-muted);
-  padding: 0;
-  margin: 0 0 18px;
-}
-
-.eyebrow::before {
-  content: '';
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--accent);
-  flex-shrink: 0;
+  color: var(--accent);
+  background: rgba(15, 113, 240, 0.1);
+  border: 1px solid rgba(15, 113, 240, 0.25);
+  border-radius: 999px;
+  padding: 6px 14px;
+  margin: 0 0 20px;
 }
 
 .page-header h1 {
