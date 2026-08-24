@@ -67,16 +67,24 @@ footer.page-footer {
 .eyebrow {
   display: inline-flex;
   align-items: center;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 0.12em;
+  gap: 8px;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 11.5px;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--accent);
-  background: rgba(15, 113, 240, 0.1);
-  border: 1px solid rgba(15, 113, 240, 0.25);
-  border-radius: 999px;
-  padding: 6px 14px;
-  margin: 0 0 20px;
+  color: var(--text-muted);
+  padding: 0;
+  margin: 0 0 18px;
+}
+
+.eyebrow::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
 }
 
 .page-header h1 {
@@ -429,14 +437,16 @@ footer.page-footer {
 /* Currency Conversion (box 2) — read-only, visually distinct as a result */
 
 .converted-amount {
-  font-family: var(--font-mono);
-  font-weight: 600;
-  color: var(--accent) !important;
+  font-family: var(--font-display) !important;
+  font-weight: 700;
+  font-size: 19px;
+  letter-spacing: -0.01em;
+  color: var(--text) !important;
   cursor: default;
 }
 
 .converted-amount.currency-alt {
-  color: #ffffff !important;
+  color: var(--text) !important;
 }
 
 /* Recipient name/bank preview */
@@ -576,8 +586,8 @@ footer.page-footer {
 .modal-box {
   position: relative;
   border-radius: 20px;
-  padding: 40px 32px 32px;
-  max-width: 560px;
+  padding: 34px 28px 28px;
+  max-width: 480px;
   width: 100%;
   border: 1.5px solid transparent;
   background-image:
@@ -596,7 +606,7 @@ footer.page-footer {
 .modal-title {
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: 20px;
+  font-size: 18px;
   margin: 0 0 16px;
   color: var(--text);
 }
@@ -686,7 +696,7 @@ body.modal-open {
 
 .confirm-amount {
   font-family: var(--font-display);
-  font-size: 38px;
+  font-size: 30px;
   font-weight: 800;
   color: var(--text);
   letter-spacing: -0.02em;
@@ -751,9 +761,9 @@ body.modal-open {
 .success-panel {
   margin-top: 24px;
   background: var(--panel);
-  border: 1px solid var(--success);
-  border-radius: 12px;
-  padding: 20px 24px;
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  padding: 22px 24px;
   box-shadow:
     0 20px 44px -18px rgba(0, 0, 0, 0.55),
     0 2px 6px rgba(0, 0, 0, 0.25);
@@ -778,18 +788,17 @@ body.modal-open {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 12px;
+  margin-bottom: 18px;
 }
 
 .success-panel-icon {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
-  background: var(--success);
-  color: #06120f;
-  font-family: var(--font-mono);
+  background: rgba(69, 212, 131, 0.15);
+  color: var(--success);
+  font-size: 12px;
   font-weight: 700;
-  font-size: 13px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -797,10 +806,10 @@ body.modal-open {
 }
 
 .success-panel-header h3 {
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-weight: 600;
-  font-size: 15px;
-  color: var(--success);
+  font-size: 14px;
+  color: var(--text);
   margin: 0;
   flex: 1;
 }
@@ -819,20 +828,40 @@ body.modal-open {
   color: var(--text);
 }
 
-.success-panel-body p {
-  font-family: var(--font-mono);
-  font-size: 13.5px;
+.success-panel-eyebrow {
+  font-family: var(--font-body);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
   margin: 0 0 6px;
-  color: var(--text);
 }
 
-.success-panel-body p:last-child {
-  margin-bottom: 0;
+.success-panel-amount {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 26px;
+  letter-spacing: -0.015em;
+  color: var(--text);
+  margin: 0 0 18px;
+}
+
+.success-panel-body p {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  margin: 0;
+  padding: 9px 0;
+  color: var(--text);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .success-panel-body .label {
   color: var(--text-muted);
-  margin-right: 6px;
+  font-weight: 400;
+  margin-right: 0;
 }
 
 /* Payment trace — a fluid segmented pill progress bar living inside the
@@ -875,12 +904,12 @@ body.modal-open {
   inset: 0;
   width: 0%;
   border-radius: 999px;
-  background: linear-gradient(90deg, var(--accent), #7c5cff);
+  background: var(--accent);
   transition: width 0.6s ease;
 }
 
 .progress-fill.blocked {
-  background: linear-gradient(90deg, var(--danger), #c23350);
+  background: var(--danger);
 }
 
 .progress-dots {
@@ -945,7 +974,8 @@ body.modal-open {
 .progress-label {
   flex: 1;
   text-align: center;
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
+  font-weight: 500;
   font-size: 11px;
   color: var(--text-muted);
   transition: color 0.3s ease;
