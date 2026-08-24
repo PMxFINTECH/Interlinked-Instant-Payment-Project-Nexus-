@@ -345,6 +345,14 @@ footer.page-footer {
   margin: 0;
   list-style: none;
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.custom-select-list.is-open {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .custom-select-list li {
@@ -406,15 +414,8 @@ footer.page-footer {
 .currency-prefix {
   font-family: var(--font-mono);
   font-size: 14px;
-  color: var(--accent);
+  color: var(--text-muted);
   flex-shrink: 0;
-}
-
-/* Feature: Amount / Currency Conversion — THB (฿) and VND (₫) are harder to
-   read in the teal accent color, so this override switches those two to
-   plain white. Applied via JS (applyCurrencyColor) based on currency code. */
-.currency-prefix.currency-alt {
-  color: #ffffff;
 }
 
 /* FX Rate line */
@@ -435,10 +436,6 @@ footer.page-footer {
   letter-spacing: -0.01em;
   color: var(--text) !important;
   cursor: default;
-}
-
-.converted-amount.currency-alt {
-  color: var(--text) !important;
 }
 
 /* Recipient name/bank preview */
@@ -569,6 +566,12 @@ footer.page-footer {
   justify-content: center;
   z-index: 100;
   padding: 20px;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+
+.modal-overlay.is-open {
+  opacity: 1;
 }
 
 .modal-overlay[hidden] {
@@ -593,6 +596,14 @@ footer.page-footer {
   box-shadow:
     0 30px 80px -20px rgba(0, 0, 0, 0.65);
   overflow: hidden;
+  transform: scale(0.96);
+  opacity: 0;
+  transition: transform 0.18s ease, opacity 0.18s ease;
+}
+
+.modal-overlay.is-open .modal-box {
+  transform: scale(1);
+  opacity: 1;
 }
 
 .modal-title {
