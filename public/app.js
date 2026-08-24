@@ -24,15 +24,6 @@ const CURRENCY_DECIMALS = {
   VND: 0,
 };
 
-// Feature: Amount / Currency Conversion — THB and VND symbols (฿, ₫) read
-// poorly in the teal accent color against the dark panel, so those two get
-// plain white instead. Everything else keeps the accent teal.
-const LOW_CONTRAST_CURRENCIES = new Set(['THB', 'VND']);
-
-function applyCurrencyColor(el, currencyCode) {
-  el.classList.toggle('currency-alt', LOW_CONTRAST_CURRENCIES.has(currencyCode));
-}
-
 const senderCountrySelect = document.getElementById('senderCountry');
 const senderBankSelect = document.getElementById('senderBank');
 const senderCurrencyPrefix = document.getElementById('senderCurrencyPrefix');
@@ -157,10 +148,12 @@ function showConfirmModal({ recipientName, countryName, currencyCode, amountText
     confirmModalEls.countryValue.textContent = countryName;
 
     confirmModalEls.overlay.hidden = false;
+    requestAnimationFrame(() => confirmModalEls.overlay.classList.add('is-open'));
     document.body.classList.add('modal-open');
 
     function cleanup(result) {
-      confirmModalEls.overlay.hidden = true;
+      confirmModalEls.overlay.classList.remove('is-open');
+      window.setTimeout(() => { confirmModalEls.overlay.hidden = true; }, 180);
       document.body.classList.remove('modal-open');
       confirmModalEls.cancelBtn.removeEventListener('click', onCancel);
       confirmModalEls.sendBtn.removeEventListener('click', onSend);
@@ -353,19 +346,21 @@ function setupCountryDropdown(containerId, selectEl) {
   const list = container.querySelector('.custom-select-list');
 
   function close() {
-    list.hidden = true;
+    list.classList.remove('is-open');
+    window.setTimeout(() => { list.hidden = true; }, 150);
     trigger.setAttribute('aria-expanded', 'false');
   }
 
   function open() {
     list.hidden = false;
+    requestAnimationFrame(() => list.classList.add('is-open'));
     trigger.setAttribute('aria-expanded', 'true');
     const active = list.querySelector('[aria-selected="true"]') || list.querySelector('li');
     if (active) active.focus();
   }
 
   function toggle() {
-    if (list.hidden) open();
+    if (!list.classList.contains('is-open')) open();
     else close();
   }
 
@@ -539,20 +534,22 @@ function setupBankDropdown(containerId, selectEl) {
   const list = container.querySelector('.custom-select-list');
 
   function close() {
-    list.hidden = true;
+    list.classList.remove('is-open');
+    window.setTimeout(() => { list.hidden = true; }, 150);
     trigger.setAttribute('aria-expanded', 'false');
   }
 
   function open() {
     if (trigger.disabled) return;
     list.hidden = false;
+    requestAnimationFrame(() => list.classList.add('is-open'));
     trigger.setAttribute('aria-expanded', 'true');
     const active = list.querySelector('[aria-selected="true"]') || list.querySelector('li');
     if (active) active.focus();
   }
 
   function toggle() {
-    if (list.hidden) open();
+    if (!list.classList.contains('is-open')) open();
     else close();
   }
 
@@ -737,7 +734,6 @@ async function updateConvertedAmount() {
     if (!res.ok) throw new Error(data.error || 'FX quote failed');
 
     convertedAmountInput.value = formatCurrency(data.convertedAmount, recipient.currency);
-    applyCurrencyColor(convertedAmountInput, recipient.currency);
     convertedAmountWrapper.hidden = false;
   } catch (err) {
     convertedAmountWrapper.hidden = true;
@@ -758,7 +754,6 @@ senderCountrySelect.addEventListener('change', async () => {
   const code = senderCountrySelect.value;
   const country = getCountryObj(code);
   senderCurrencyPrefix.textContent = country ? (CURRENCY_SYMBOLS[country.currency] || country.currency) : '—';
-  applyCurrencyColor(senderCurrencyPrefix, country ? country.currency : '');
 
   senderBankSelect.disabled = true;
   senderBankDropdown.reset('Loading banks…');
