@@ -10,6 +10,15 @@
   --success: #45d483;
   --danger: #f2596b;
 
+  /* Elevation scale — three tiers so every floating element (dropdown,
+     card, modal) pulls from the same shadow "DNA" (soft ambient blur with
+     negative spread + a tight contact shadow) instead of hand-tuned
+     one-off values that drift close-but-not-quite over time. */
+  --shadow-sm: 0 12px 28px -12px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 20px 44px -18px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.25);
+  --shadow-md-hover: 0 26px 52px -16px rgba(0, 0, 0, 0.6), 0 4px 10px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 30px 80px -20px rgba(0, 0, 0, 0.65), 0 6px 16px rgba(0, 0, 0, 0.35);
+
   --font-display: 'Bricolage Grotesque', sans-serif;
   --font-body: 'Inter', sans-serif;
   --font-mono: 'IBM Plex Mono', monospace;
@@ -357,7 +366,7 @@ footer.page-footer {
   padding: 6px;
   margin: 0;
   list-style: none;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--shadow-sm);
   transform-origin: top center;
   opacity: 1;
   transform: translateY(0) scale(1);
@@ -486,9 +495,7 @@ footer.page-footer {
   border-radius: 10px;
   padding: 14px 16px;
   margin-top: 6px;
-  box-shadow:
-    0 18px 40px -18px rgba(0, 0, 0, 0.55),
-    0 2px 6px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--shadow-md);
   opacity: 0;
   transform: translateY(8px);
   animation: reveal 0.4s ease forwards;
@@ -497,9 +504,7 @@ footer.page-footer {
 
 .recipient-preview:hover {
   transform: translateY(-2px);
-  box-shadow:
-    0 24px 48px -16px rgba(0, 0, 0, 0.6),
-    0 4px 10px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-md-hover);
 }
 
 .recipient-preview p {
@@ -563,11 +568,19 @@ footer.page-footer {
   padding: 12px 22px;
   cursor: pointer;
   box-shadow: 0 3px 0 var(--accent-dim);
-  transition: transform 0.08s ease, background 0.15s ease, box-shadow 0.08s ease;
+  transition: transform 0.08s ease, box-shadow 0.2s ease;
 }
 
+/* Hover keeps the accent hue (no swap to an off-palette color) and instead
+   signals "you're on the target" with a soft accent glow + a slight lift,
+   layered on top of the existing 3D-press ridge shadow rather than
+   replacing it. */
 #submitBtn:hover:not(:disabled) {
-  background: #4fe0d5;
+  box-shadow:
+    0 3px 0 var(--accent-dim),
+    0 0 0 4px rgba(15, 113, 240, 0.16),
+    0 10px 24px -8px rgba(15, 113, 240, 0.5);
+  transform: translateY(-1px);
 }
 
 #submitBtn:active:not(:disabled) {
@@ -644,8 +657,7 @@ footer.page-footer {
   background-clip: padding-box, padding-box, padding-box, border-box;
   backdrop-filter: blur(20px) saturate(140%);
   -webkit-backdrop-filter: blur(20px) saturate(140%);
-  box-shadow:
-    0 30px 80px -20px rgba(0, 0, 0, 0.65);
+  box-shadow: var(--shadow-lg);
   overflow: hidden;
   transform: scale(1);
   transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
@@ -697,7 +709,7 @@ footer.page-footer {
   padding: 10px 22px;
   cursor: pointer;
   border: 1px solid transparent;
-  transition: transform 0.1s ease, background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  transition: transform 0.1s ease, background 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.2s ease;
 }
 
 .modal-btn-secondary {
@@ -716,8 +728,13 @@ footer.page-footer {
   color: #06120f;
 }
 
+/* Same language as #submitBtn: hover stays on-hue and communicates via a
+   soft glow + lift instead of swapping to an off-palette color. */
 .modal-btn-primary:hover {
-  background: #4fe0d5;
+  box-shadow:
+    0 0 0 4px rgba(15, 113, 240, 0.16),
+    0 10px 22px -8px rgba(15, 113, 240, 0.5);
+  transform: translateY(-1px);
 }
 
 .modal-btn:active {
@@ -822,9 +839,7 @@ body.modal-open {
   border: 1px solid var(--panel-border);
   border-radius: 14px;
   padding: 22px 24px;
-  box-shadow:
-    0 20px 44px -18px rgba(0, 0, 0, 0.55),
-    0 2px 6px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--shadow-md);
   opacity: 0;
   transform: translateY(6px);
   animation: reveal 0.4s ease forwards;
@@ -833,9 +848,7 @@ body.modal-open {
 
 .success-panel:hover {
   transform: translateY(-2px);
-  box-shadow:
-    0 26px 52px -16px rgba(0, 0, 0, 0.6),
-    0 4px 10px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-md-hover);
 }
 
 .success-panel[hidden] {
@@ -934,9 +947,7 @@ body.modal-open {
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 12px;
   padding: 26px 24px 20px;
-  box-shadow:
-    0 20px 44px -18px rgba(0, 0, 0, 0.55),
-    0 2px 6px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--shadow-md);
   opacity: 0;
   transform: translateY(8px);
   animation: reveal 0.4s ease forwards;
