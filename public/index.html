@@ -3,164 +3,788 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Nexus-Style IPS Interlinking Simulator</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;800&family=Sora:wght@400;500;600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="style.css?v=14" />
+<title>Nexus — Corridor Map Prototype (Glow-Line Cartography)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0b1420;
+    --panel: #121d2e;
+    --panel-border: rgba(255,255,255,0.07);
+    --ink: #eef3fa;
+    --ink-dim: #8fa1b8;
+    --ink-faint: #5c7086;
+    --accent: #0f71f0;
+    --accent-soft: rgba(15,113,240,0.35);
+    --recipient: #f0a531;
+    --recipient-soft: rgba(240,165,49,0.35);
+    --line-neutral: #3a5578;
+    --line-neutral-dim: #253549;
+    --ok: #2ecf82;
+    --radius: 14px;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'Plus Jakarta Sans', sans-serif;
+  }
+  *{ box-sizing: border-box; }
+  html,body{ margin:0; padding:0; background: var(--bg); color: var(--ink); font-family: var(--sans); }
+  body{
+    min-height: 100vh;
+    padding: 40px 20px 80px;
+    background:
+      radial-gradient(ellipse 60% 40% at 15% 0%, rgba(15,113,240,0.06), transparent 60%),
+      var(--bg);
+  }
+
+  .wrap{ max-width: 1180px; margin: 0 auto; }
+
+  .page-head{ margin-bottom: 28px; }
+  .eyebrow{
+    font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.09em; text-transform: uppercase;
+    color: var(--accent); display:block; margin-bottom: 8px; font-weight: 600;
+  }
+  h1{ font-size: 26px; font-weight: 700; margin: 0 0 8px; letter-spacing: -0.01em; }
+  .page-head p{ color: var(--ink-dim); font-size: 14.5px; line-height: 1.6; max-width: 760px; margin: 0; }
+
+  .hub-row{
+    display: grid; grid-template-columns: 2fr 1fr; gap: 28px; align-items: start;
+  }
+  .form-card, .side-card{
+    background: var(--panel); border: 1px solid var(--panel-border); border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .form-columns{ display: grid; grid-template-columns: 1fr 1px 1fr; }
+  .hub-divider{ background: var(--panel-border); }
+  .hub-column{ padding: 26px 28px; }
+  .side-card{ padding: 22px 22px 26px; }
+
+  @media (max-width: 900px){
+    .hub-row{ grid-template-columns: 1fr; }
+  }
+
+  .col-label{
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--ink-faint); margin-bottom: 18px; display:flex; align-items:center; gap: 8px;
+  }
+  .col-label .dot{ width:5px; height:5px; border-radius:50%; background: var(--accent); }
+  .col-label.recipient-label .dot{ background: var(--recipient); }
+
+  .field{ margin-bottom: 16px; }
+  .field label{
+    display:block; font-size: 11.5px; color: var(--ink-faint); margin-bottom: 6px; font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+  .field input, .field select{
+    width: 100%; background: #0d1826; border: 1px solid rgba(255,255,255,0.09); color: var(--ink);
+    padding: 10px 12px; border-radius: 8px; font-family: var(--sans); font-size: 14px; outline: none;
+    transition: border-color 0.15s ease;
+    appearance: none;
+  }
+  .field select{
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M0 0L5 6L10 0Z' fill='%238fa1b8'/></svg>");
+    background-repeat: no-repeat; background-position: right 12px center;
+  }
+  .field input:focus, .field select:focus{ border-color: var(--accent); }
+  .field select.sender-field:focus{ border-color: var(--accent); }
+  .field select.recipient-field:focus{ border-color: var(--recipient); }
+
+  .amount-row{ display:flex; gap: 10px; }
+  .amount-row .field{ flex:1; }
+
+  .fx-rate-line{
+    font-family: var(--mono); font-size: 12px; color: var(--ink-faint); margin-top: -8px; margin-bottom: 16px;
+  }
+  .fx-rate-line b{ color: var(--ink-dim); font-weight: 500; }
+
+  .submit-row{ margin-top: 4px; padding: 0 28px 26px; }
+  #send-btn{
+    width: 100%; padding: 13px; border-radius: 9px; border: none; cursor: pointer;
+    background: linear-gradient(135deg, var(--accent), #0a58c2); color: white;
+    font-family: var(--sans); font-weight: 700; font-size: 14.5px; letter-spacing: 0.01em;
+    transition: opacity 0.15s ease, transform 0.1s ease;
+  }
+  #send-btn:disabled{ opacity: 0.35; cursor: not-allowed; }
+  #send-btn:not(:disabled):hover{ opacity: 0.92; }
+  #send-btn:not(:disabled):active{ transform: scale(0.995); }
+  #send-btn.processing{ opacity: 0.7; cursor: wait; }
+
+  /* ---------- FX ticker ---------- */
+  .fx-ticker{
+    background: #0d1826; border: 1px solid rgba(255,255,255,0.07); border-radius: 10px;
+    padding: 16px 16px 6px; margin-bottom: 16px;
+  }
+  .fx-ticker-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom: 12px; }
+  .fx-ticker-title{ font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); }
+  .fx-live-badge{
+    display:flex; align-items:center; gap: 5px; font-family: var(--mono); font-size: 10px;
+    color: var(--ok); letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  .live-dot{ width: 6px; height: 6px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 6px var(--ok); animation: livepulse 1.8s ease-in-out infinite; }
+  @keyframes livepulse{ 0%,100%{ opacity: 1; } 50%{ opacity: 0.35; } }
+
+  .fx-base-chip{
+    display:inline-flex; align-items:center; gap: 6px; background: rgba(15,113,240,0.1);
+    border: 1px solid rgba(15,113,240,0.25); color: var(--ink-dim);
+    font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 20px;
+    margin-bottom: 12px; transition: background 0.2s ease, border-color 0.2s ease;
+  }
+  .fx-base-chip b{ color: var(--ink); font-weight: 600; letter-spacing: 0.03em; }
+  .fx-base-chip.is-set{ background: rgba(15,113,240,0.16); border-color: rgba(15,113,240,0.4); }
+
+  .fx-refresh{
+    background: none; border: 1px solid rgba(255,255,255,0.1); color: var(--ink-dim);
+    font-family: var(--mono); font-size: 10px; padding: 4px 8px; border-radius: 6px; cursor: pointer;
+    display:flex; align-items:center; gap:5px; transition: border-color 0.15s ease, color 0.15s ease;
+    margin-left: auto;
+  }
+  .fx-refresh:hover{ border-color: var(--accent); color: var(--ink); }
+  .fx-refresh svg{ width: 10px; height: 10px; transition: transform 0.4s ease; }
+  .fx-refresh.spin svg{ transform: rotate(360deg); }
+
+  .fx-base-row{ display:flex; align-items:center; justify-content: space-between; }
+
+  .fx-row{
+    display:flex; align-items:center; justify-content: space-between;
+    padding: 9px 0; border-top: 1px solid rgba(255,255,255,0.045); font-size: 12.5px;
+  }
+  .fx-row:first-of-type{ border-top: none; }
+  .fx-left{ display:flex; align-items:center; gap: 10px; }
+  .fx-rank{ font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); width: 12px; }
+  .fx-row.best .fx-rank{ color: var(--ok); }
+  .fx-flag{ width: 21px; height: 15px; border-radius: 2px; object-fit: cover; }
+  .fx-ccy{ font-weight: 700; font-size: 12.5px; letter-spacing: 0.02em; }
+  .fx-right{ display:flex; align-items: baseline; gap: 8px; }
+  .fx-value{ font-family: var(--mono); font-weight: 600; font-size: 13.5px; color: var(--ink); }
+  .fx-delta{ font-family: var(--mono); font-size: 10.5px; }
+  .fx-delta.up{ color: var(--ok); }
+  .fx-delta.down{ color: #ef5757; }
+  .fx-row.is-recipient{ background: linear-gradient(90deg, rgba(240,165,49,0.07), transparent); border-radius: 6px; padding-left: 6px; padding-right: 6px; margin: 0 -6px; }
+
+  /* ---------- Map stage ---------- */
+  .map-stage{
+    position: relative; border-radius: 10px; overflow: hidden; margin-bottom: 16px;
+    background:
+      radial-gradient(ellipse 75% 60% at 50% 38%, #0f1c2e 0%, #0a1420 65%, #08111c 100%);
+    border: 1px solid rgba(255,255,255,0.055);
+  }
+  .map-stage::after{
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    box-shadow: inset 0 0 60px rgba(0,0,0,0.55);
+  }
+  svg.sea-map{ width: 100%; height: auto; display: block; }
+
+  .country-line{
+    fill: none; stroke: var(--line-neutral); stroke-width: 1; stroke-linejoin: round; stroke-linecap: round;
+    transition: stroke 0.35s ease, stroke-width 0.35s ease;
+  }
+  .country-glow{
+    fill: none; stroke: var(--line-neutral); stroke-width: 3.2; stroke-linejoin: round; stroke-linecap: round;
+    opacity: 0.16; filter: blur(2.6px);
+    transition: stroke 0.35s ease, opacity 0.35s ease;
+  }
+  .country-hit{ fill: rgba(0,0,0,0); stroke: transparent; stroke-width: 14; cursor: pointer; }
+
+  .country-piece:hover .country-line{ stroke: #7f9bc2; }
+  .country-piece:hover .country-glow{ opacity: 0.28; }
+
+  .country-piece.is-sender .country-line{ stroke: var(--accent); stroke-width: 1.4; }
+  .country-piece.is-sender .country-glow{ stroke: var(--accent); opacity: 0.85; stroke-width: 5; }
+  .country-piece.is-recipient .country-line{ stroke: var(--recipient); stroke-width: 1.4; }
+  .country-piece.is-recipient .country-glow{ stroke: var(--recipient); opacity: 0.85; stroke-width: 5; }
+
+  .country-label{
+    font-family: var(--mono); font-size: 9.5px; fill: var(--ink-faint); text-anchor: middle;
+    letter-spacing: 0.06em; pointer-events: none; transition: fill 0.3s ease, opacity 0.3s ease;
+  }
+  .country-piece.is-sender .country-label{ fill: var(--accent); opacity: 0; }
+  .country-piece.is-recipient .country-label{ fill: var(--recipient); opacity: 0; }
+
+  .sg-dot{ fill: var(--line-neutral); transition: fill 0.35s ease; }
+  .sg-dot-glow{ fill: var(--line-neutral); opacity: 0.3; filter: blur(3px); transition: fill 0.35s ease, opacity 0.35s ease; }
+  .sg-marker:hover .sg-dot{ fill: #7f9bc2; }
+  .sg-marker.is-sender .sg-dot{ fill: var(--accent); }
+  .sg-marker.is-sender .sg-dot-glow{ fill: var(--accent); opacity: 0.9; }
+  .sg-marker.is-recipient .sg-dot{ fill: var(--recipient); }
+  .sg-marker.is-recipient .sg-dot-glow{ fill: var(--recipient); opacity: 0.9; }
+  .sg-hit{ fill: rgba(0,0,0,0); cursor: pointer; }
+
+  .flag-badge{ opacity: 0; transition: opacity 0.3s ease, transform 0.3s ease; transform: translateY(3px); pointer-events: none; }
+  .flag-badge.show{ opacity: 1; transform: translateY(0); }
+  .flag-badge-bg{ fill: #0d1826; stroke: rgba(255,255,255,0.14); stroke-width: 1; }
+  .flag-badge-name{ font-family: var(--mono); font-size: 8.5px; fill: var(--ink); letter-spacing: 0.03em; }
+
+  .connector-line{ fill: none; stroke: url(#connectorGrad); stroke-width: 1.6; opacity: 0; transition: opacity 0.4s ease; filter: drop-shadow(0 0 3px rgba(15,113,240,0.5)); }
+  .connector-line.show{ opacity: 0.9; }
+  .connector-pulse{ fill: none; stroke: url(#connectorGrad); stroke-width: 2.6; stroke-linecap: round; opacity: 0; }
+  .connector-pulse.show{ opacity: 0.95; }
+  .connector-node{ opacity: 0; transition: opacity 0.4s ease; }
+  .connector-node.show{ opacity: 1; }
+
+  /* ---------- Route card ---------- */
+  .route-card{
+    display: none; align-items: center; justify-content: space-between;
+    background: #0d1826; border: 1px solid rgba(255,255,255,0.07); border-radius: 10px;
+    padding: 14px 16px; margin-bottom: 16px;
+  }
+  .route-card.show{ display: flex; }
+  .route-side{ display:flex; align-items:center; gap: 9px; }
+  .route-side img{ width: 24px; height: 17px; border-radius: 3px; object-fit: cover; }
+  .route-side .rs-country{ font-size: 13px; font-weight: 700; }
+  .route-side .rs-rail{ font-family: var(--mono); font-size: 10px; color: var(--ink-faint); margin-top: 1px; }
+  .route-chevron{ color: var(--ink-faint); display:flex; align-items:center; gap: 3px; }
+  .route-chevron svg{ width: 14px; height: 14px; }
+
+  /* ---------- Five-step process ---------- */
+  .process-track{ display: none; margin-bottom: 4px; }
+  .process-track.show{ display: block; }
+  .process-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom: 12px; }
+  .process-title{ font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); }
+  .process-status{ font-family: var(--mono); font-size: 11px; color: var(--accent); font-weight: 600; }
+  .process-status.done{ color: var(--ok); }
+
+  .process-bar-track{ height: 3px; background: rgba(255,255,255,0.08); border-radius: 3px; margin-bottom: 14px; overflow: hidden; }
+  .process-bar-fill{ height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), var(--ok)); transition: width 0.5s ease; }
+
+  .process-steps{ display:flex; justify-content: space-between; position: relative; }
+  .process-step{ display:flex; flex-direction: column; align-items:center; gap: 7px; flex: 1; text-align:center; }
+  .step-dot{
+    width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,0.14);
+    border: 1.5px solid rgba(255,255,255,0.2); transition: all 0.3s ease;
+  }
+  .process-step.active .step-dot{ background: var(--accent); border-color: var(--accent); box-shadow: 0 0 8px var(--accent-soft); }
+  .process-step.done .step-dot{ background: var(--ok); border-color: var(--ok); }
+  .step-label{ font-size: 9.5px; color: var(--ink-faint); font-family: var(--mono); line-height: 1.3; max-width: 66px; }
+  .process-step.active .step-label{ color: var(--ink); }
+  .process-step.done .step-label{ color: var(--ink-dim); }
+
+  @media (max-width: 720px){
+    .form-columns{ grid-template-columns: 1fr; }
+    .hub-divider{ display: none; }
+  }
+</style>
 </head>
 <body>
+<div class="wrap">
 
-  <div class="grid-texture" aria-hidden="true"></div>
-  <div class="halo-glow" aria-hidden="true"></div>
-  <div class="grain-overlay" aria-hidden="true"></div>
+  <div class="page-head">
+    <span class="eyebrow">Prototype · glow-line cartography · standalone build</span>
+    <h1>Corridor map — thin luminous coastline treatment</h1>
+    <p>Same functional build as the approved v4 (form-linked selection, gated five-step process, sorted FX ticker, flowing connector) — restyled with unfilled, glowing thin-line coastlines instead of flag-filled shapes or embossed relief, closer to the TOKI-poster reference.</p>
+  </div>
 
-  <header class="page-header">
-    <p class="eyebrow">South East Asia Interlinked Instant Payment Simulator</p>
-    <h1>One payment, six countries, real time.</h1>
-    <p class="subcopy">Simulate a real-time cross-border payment across Southeast Asia's instant payment rails.</p>
-  </header>
-
-  <main>
-    <div class="page-layout">
-    <form id="payment-form" class="hub-panel">
-      <div class="hub-column" data-role="sender">
-        <p class="column-label">Sender</p>
-
-        <label class="field">
-          <span>Full name</span>
-          <input type="text" id="senderName" name="senderName" placeholder="e.g. Alex Tan" required />
-        </label>
-
-        <label class="field">
-          <span>Country</span>
-          <div class="custom-select" id="senderCountryCustom">
-            <select id="senderCountry" name="senderCountry" required class="native-select-hidden" aria-hidden="true" tabindex="-1">
-              <option value="" disabled selected>Select country</option>
+  <div class="hub-row">
+    <div class="form-card">
+      <div class="form-columns">
+        <div class="hub-column">
+          <div class="col-label"><span class="dot"></span>Sender</div>
+          <div class="field">
+            <label>Full name</label>
+            <input type="text" placeholder="e.g. Alex Tan" />
+          </div>
+          <div class="field">
+            <label>Country</label>
+            <select id="sender-select" class="sender-field">
+              <option value="">Select country</option>
             </select>
-            <button type="button" class="custom-select-trigger" aria-haspopup="listbox" aria-expanded="false">
-              <span class="custom-select-flag"></span>
-              <span class="custom-select-label">Select country</span>
-              <span class="custom-select-caret">▾</span>
-            </button>
-            <ul class="custom-select-list" role="listbox" hidden></ul>
           </div>
-        </label>
-
-        <label class="field">
-          <span>Bank</span>
-          <div class="custom-select" id="senderBankCustom">
-            <select id="senderBank" name="senderBank" required disabled class="native-select-hidden" aria-hidden="true" tabindex="-1">
-              <option value="" disabled selected>Select country first</option>
-            </select>
-            <button type="button" class="custom-select-trigger" aria-haspopup="listbox" aria-expanded="false" disabled>
-              <span class="custom-select-chip-slot"></span>
-              <span class="custom-select-label">Select country first</span>
-              <span class="custom-select-caret">▾</span>
-            </button>
-            <ul class="custom-select-list" role="listbox" hidden></ul>
+          <div class="field">
+            <label>Bank</label>
+            <select id="bank-select"><option>Select country first</option></select>
           </div>
-        </label>
-
-        <label class="field">
-          <span>Amount</span>
-          <div class="amount-input-wrapper">
-            <span class="currency-prefix" id="senderCurrencyPrefix">—</span>
-            <input
-              type="text"
-              inputmode="decimal"
-              id="amount"
-              name="amount"
-              placeholder="0.00"
-              autocomplete="off"
-              required
-            />
+          <div class="field">
+            <label>Amount</label>
+            <input type="number" id="amount-input" placeholder="0.00" value="" />
           </div>
-        </label>
-
-        <p class="fx-rate-line" id="fxRateLine" hidden></p>
-      </div>
-
-      <div class="hub-divider" aria-hidden="true">
-        <span class="hub-node"></span>
-        <span class="hub-line"></span>
-        <span class="hub-node"></span>
-      </div>
-
-      <div class="hub-column" data-role="recipient">
-        <p class="column-label">Recipient</p>
-
-        <label class="field">
-          <span>Country</span>
-          <div class="custom-select" id="recipientCountryCustom">
-            <select id="recipientCountry" name="recipientCountry" required class="native-select-hidden" aria-hidden="true" tabindex="-1">
-              <option value="" disabled selected>Select country</option>
-            </select>
-            <button type="button" class="custom-select-trigger" aria-haspopup="listbox" aria-expanded="false">
-              <span class="custom-select-flag"></span>
-              <span class="custom-select-label">Select country</span>
-              <span class="custom-select-caret">▾</span>
-            </button>
-            <ul class="custom-select-list" role="listbox" hidden></ul>
-          </div>
-        </label>
-
-        <label class="field">
-          <span>Recipient phone number</span>
-          <input
-            type="tel"
-            id="recipientPhone"
-            name="recipientPhone"
-            placeholder="Select country first"
-            required
-            disabled
-          />
-          <p class="field-hint" id="recipientPhoneHint" hidden></p>
-        </label>
-
-        <div class="recipient-preview" id="recipientPreview" hidden>
-          <p><span class="label">Name:</span> <span id="recipientPreviewName"></span></p>
-          <p><span class="label">Bank:</span> <span id="recipientPreviewBank"></span></p>
+          <div class="fx-rate-line" id="fx-rate-line">Select a sender and recipient to see the live rate.</div>
         </div>
 
-        <label class="field" id="convertedAmountWrapper" hidden>
-          <span>Recipient receives</span>
-          <input type="text" id="convertedAmount" class="converted-amount" readonly tabindex="-1" />
-        </label>
+        <div class="hub-divider"></div>
+
+        <div class="hub-column">
+          <div class="col-label recipient-label"><span class="dot"></span>Recipient</div>
+          <div class="field">
+            <label>Country</label>
+            <select id="recipient-select" class="recipient-field">
+              <option value="">Select country</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Recipient phone number</label>
+            <input type="text" id="recipient-phone" placeholder="Select country first" />
+          </div>
+          <div class="field">
+            <label>Recipient receives</label>
+            <input type="text" id="recipient-receives" readonly placeholder="0.00" value="" />
+          </div>
+        </div>
       </div>
 
       <div class="submit-row">
-        <button type="submit" id="submitBtn">Send payment</button>
-        <p class="submit-hint" id="submitHint"></p>
+        <button id="send-btn" disabled>Select sender and recipient to continue</button>
       </div>
-
-      <div id="trace" class="progress-row" hidden>
-        <div class="progress-track">
-          <div id="progressFill" class="progress-fill"></div>
-          <div class="progress-dots">
-            <span class="progress-dot-slot"><span class="progress-dot" data-station="0"><span class="progress-dot-check">✓</span></span></span>
-            <span class="progress-dot-slot"><span class="progress-dot" data-station="1"><span class="progress-dot-check">✓</span></span></span>
-            <span class="progress-dot-slot"><span class="progress-dot" data-station="2"><span class="progress-dot-check">✓</span></span></span>
-            <span class="progress-dot-slot"><span class="progress-dot" data-station="3"><span class="progress-dot-check">✓</span></span></span>
-            <span class="progress-dot-slot"><span class="progress-dot" data-station="4"><span class="progress-dot-check">✓</span></span></span>
-          </div>
-        </div>
-        <div class="progress-labels">
-          <span class="progress-label" data-station="0">Compliance</span>
-          <span class="progress-label" data-station="1">Proxy resolution</span>
-          <span class="progress-label" data-station="2">FX conversion</span>
-          <span class="progress-label" data-station="3">Message translation</span>
-          <span class="progress-label" data-station="4">Settled</span>
-        </div>
-      </div>
-    </form>
     </div>
-  </main>
 
-  <footer class="page-footer">
-    <p>Bank and recipient names are fictionally generated for illustrative purposes only in a demo. Not affiliated with or endorsed by any institution listed.</p>
-  </footer>
+    <div class="side-card">
 
-  <script src="app.js"></script>
+      <div class="fx-ticker">
+        <div class="fx-ticker-head">
+          <span class="fx-ticker-title">Live rates</span>
+          <span class="fx-live-badge"><span class="live-dot"></span>Live</span>
+        </div>
+        <div class="fx-base-row">
+          <span class="fx-base-chip" id="fx-base-chip">Base — <b id="fx-base-code">USD</b></span>
+          <button class="fx-refresh" id="fx-refresh">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 8a6 6 0 0110.9-3.5M14 8a6 6 0 01-10.9 3.5M11 3v3h-3M5 13v-3h3"/></svg>
+            refresh
+          </button>
+        </div>
+        <div id="fx-rows"></div>
+      </div>
+
+      <div class="map-stage">
+        <svg class="sea-map" id="sea-map" viewBox="0 0 560 610" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="connectorGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="var(--accent)" />
+              <stop offset="100%" stop-color="var(--recipient)" />
+            </linearGradient>
+          </defs>
+          <g id="connector-layer"></g>
+          <g id="countries-layer"></g>
+          <g id="badges-layer"></g>
+        </svg>
+      </div>
+
+      <div class="route-card" id="route-card">
+        <div class="route-side" id="route-sender"></div>
+        <div class="route-chevron">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+        </div>
+        <div class="route-side" id="route-recipient" style="flex-direction: row-reverse; text-align: right;"></div>
+      </div>
+
+      <div class="process-track" id="process-track">
+        <div class="process-head">
+          <span class="process-title">Settlement pipeline</span>
+          <span class="process-status" id="process-status">Processing…</span>
+        </div>
+        <div class="process-bar-track"><div class="process-bar-fill" id="process-bar-fill"></div></div>
+        <div class="process-steps" id="process-steps"></div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<script id="geo-data" type="application/json">{"geo":{"paths":{"MY":["M 100.04,302.13 L 101.01,298.27 L 102.42,298.09 L 103.82,300.32 L 108.57,302.03 L 110.66,301.83 L 112.65,305.44 L 115.65,305.48 L 116.02,310.29 L 114.45,313.41 L 116.66,315.67 L 119.05,313.1 L 124.04,311.11 L 126.09,313.28 L 127.96,313.27 L 129.35,312.5 L 133.15,305.49 L 136.03,306.14 L 140.38,311.87 L 149.78,319.51 L 155.1,328.89 L 155.74,331.93 L 155.99,336.57 L 154.2,347.06 L 155.73,351.24 L 155.5,361.11 L 157.13,363.78 L 161.72,367.04 L 168.51,381.46 L 169.68,385.53 L 169.04,387.08 L 167.81,387.47 L 166.78,386.68 L 164.55,383.13 L 164.72,385.96 L 159.76,386.05 L 156.18,388.07 L 154.12,384.43 L 143.6,379.23 L 140.61,376.09 L 133.89,372.62 L 127.8,367.16 L 123.44,365.31 L 119.69,361.92 L 120.67,359.8 L 119.77,355.73 L 110.0,343.75 L 111.34,342.79 L 108.32,336.9 L 108.32,332.22 L 103.94,316.49 L 103.79,309.83 L 100.04,302.13 Z"],"SG":["M 164.8,387.47 L 161.85,389.15 L 159.02,388.14 L 159.94,386.49 L 161.82,386.09 L 164.8,387.47 Z"],"TH":["M 100.1,68.91 L 100.39,70.11 L 103.37,67.74 L 106.73,71.24 L 107.12,72.74 L 104.7,78.33 L 105.07,80.21 L 106.63,81.74 L 110.48,82.39 L 114.2,80.77 L 118.3,81.82 L 118.06,85.53 L 119.54,91.42 L 117.52,97.46 L 115.54,100.42 L 117.05,103.03 L 117.16,105.45 L 113.23,114.84 L 114.02,115.56 L 117.55,116.27 L 126.24,109.71 L 127.7,107.29 L 130.58,106.48 L 133.15,104.31 L 140.69,108.44 L 142.49,110.91 L 144.94,108.76 L 149.02,107.37 L 150.64,104.12 L 152.55,103.17 L 152.97,100.98 L 156.31,100.82 L 161.39,102.53 L 164.02,102.49 L 172.01,112.91 L 177.21,116.9 L 178.49,119.61 L 177.28,126.6 L 177.4,130.58 L 178.54,133.63 L 182.35,138.77 L 188.35,141.68 L 188.22,144.33 L 192.27,147.24 L 191.84,150.07 L 189.75,153.96 L 190.69,159.41 L 189.5,166.18 L 182.8,171.26 L 181.62,170.81 L 181.06,168.93 L 177.87,167.9 L 164.56,169.07 L 158.19,168.01 L 151.49,169.5 L 146.64,172.79 L 143.63,177.74 L 140.56,180.8 L 140.59,182.05 L 136.8,182.82 L 136.98,187.05 L 139.17,191.64 L 139.8,197.44 L 144.08,201.54 L 143.25,204.41 L 143.76,207.2 L 147.05,213.64 L 141.38,205.29 L 140.48,206.87 L 137.19,204.46 L 135.78,202.08 L 135.29,203.13 L 132.03,199.76 L 128.71,197.94 L 126.84,197.12 L 122.19,198.3 L 113.05,197.72 L 112.47,196.7 L 114.13,184.63 L 108.12,182.35 L 107.01,183.25 L 101.99,183.75 L 98.35,185.96 L 97.9,187.8 L 99.56,191.13 L 97.45,197.11 L 97.87,205.83 L 91.83,217.73 L 89.49,227.37 L 84.11,236.95 L 84.04,246.79 L 86.17,252.16 L 85.59,254.68 L 87.93,255.54 L 93.44,253.85 L 95.31,254.29 L 97.88,266.04 L 100.21,268.75 L 100.79,267.4 L 102.72,271.43 L 105.63,285.32 L 107.16,288.94 L 105.39,288.03 L 104.41,283.65 L 102.79,283.48 L 103.36,280.72 L 102.34,279.73 L 100.7,280.51 L 100.74,282.68 L 105.13,289.59 L 107.85,289.79 L 115.05,295.09 L 119.8,294.29 L 123.07,295.02 L 128.1,301.58 L 133.15,305.49 L 129.35,312.5 L 126.09,313.28 L 124.04,311.11 L 119.05,313.1 L 116.66,315.67 L 114.45,313.41 L 116.02,310.29 L 115.65,305.48 L 112.65,305.44 L 110.66,301.83 L 108.57,302.03 L 103.82,300.32 L 102.42,298.09 L 101.01,298.27 L 100.04,302.13 L 95.86,296.96 L 92.98,294.83 L 93.38,290.97 L 90.59,289.07 L 91.32,286.77 L 87.34,286.5 L 85.76,282.35 L 84.42,280.68 L 82.65,280.68 L 82.21,277.83 L 77.82,274.94 L 76.4,271.63 L 74.33,270.16 L 73.0,270.6 L 71.68,272.95 L 70.68,272.8 L 68.63,268.83 L 68.69,263.04 L 70.86,254.25 L 77.13,236.43 L 77.3,231.21 L 84.53,223.75 L 91.62,212.38 L 89.08,205.51 L 88.12,199.5 L 85.03,196.27 L 83.42,191.38 L 84.3,187.98 L 83.64,179.85 L 80.24,174.25 L 74.17,169.04 L 68.76,161.39 L 68.03,158.68 L 67.84,154.85 L 73.95,152.1 L 74.55,140.62 L 78.31,138.43 L 79.49,135.55 L 78.61,134.45 L 76.16,136.33 L 75.69,135.91 L 72.64,129.16 L 71.98,125.07 L 59.75,111.26 L 60.31,108.94 L 58.51,102.97 L 55.48,101.8 L 54.2,99.14 L 56.55,99.48 L 60.41,97.96 L 59.74,92.19 L 61.38,88.85 L 61.59,83.31 L 64.9,78.44 L 70.85,79.46 L 79.96,78.05 L 82.59,72.56 L 87.0,72.9 L 89.47,71.71 L 89.02,68.13 L 93.38,68.76 L 96.22,67.1 L 100.1,68.91 Z"],"PH":["M 450.48,97.51 L 462.9,102.88 L 466.13,102.34 L 467.93,99.67 L 469.92,100.14 L 470.74,102.47 L 468.48,106.77 L 468.03,113.49 L 469.44,117.35 L 471.95,119.5 L 472.29,121.66 L 474.15,122.56 L 467.74,138.36 L 461.95,140.17 L 458.72,142.59 L 458.15,144.38 L 458.92,147.02 L 455.33,152.82 L 460.4,162.69 L 459.25,163.63 L 459.27,165.32 L 461.58,172.26 L 464.01,174.74 L 469.02,176.26 L 470.28,175.15 L 468.82,172.6 L 473.68,169.67 L 475.96,169.75 L 481.08,171.93 L 483.37,175.76 L 483.19,178.64 L 483.89,179.29 L 486.05,179.33 L 487.14,177.84 L 486.51,175.5 L 487.53,174.05 L 489.4,175.65 L 495.81,177.82 L 496.51,178.46 L 495.65,179.76 L 492.32,180.05 L 491.36,181.04 L 495.87,187.37 L 495.3,190.04 L 501.27,191.29 L 501.18,195.41 L 499.88,199.17 L 496.84,197.11 L 498.03,193.3 L 492.65,193.38 L 487.38,191.15 L 487.12,188.27 L 484.91,184.47 L 479.9,181.52 L 475.42,176.64 L 473.6,176.26 L 473.3,176.99 L 473.97,180.86 L 476.64,185.25 L 476.76,187.64 L 475.5,188.63 L 471.77,183.15 L 466.7,178.64 L 461.77,176.13 L 457.15,177.74 L 456.23,179.93 L 454.53,180.98 L 450.38,180.47 L 447.65,179.09 L 446.12,177.02 L 444.26,176.76 L 442.72,178.37 L 442.38,171.93 L 447.48,166.8 L 447.8,164.24 L 441.83,160.27 L 441.21,162.21 L 441.91,166.97 L 439.41,167.47 L 436.27,161.75 L 433.45,160.78 L 430.96,151.03 L 430.27,144.2 L 428.22,141.33 L 428.28,137.18 L 429.25,135.98 L 434.75,140.67 L 438.24,139.63 L 437.16,130.62 L 438.91,125.4 L 439.21,118.32 L 438.07,113.93 L 442.1,99.31 L 445.67,97.71 L 450.48,97.51 Z","M 530.23,250.51 L 533.75,254.75 L 535.52,254.48 L 535.49,257.03 L 537.37,259.94 L 537.62,261.74 L 534.62,265.93 L 538.39,267.81 L 538.63,270.45 L 539.95,272.53 L 539.56,278.75 L 541.81,281.37 L 542.0,288.59 L 539.62,292.54 L 535.5,295.23 L 536.3,297.23 L 535.45,304.36 L 533.01,295.39 L 529.36,287.15 L 527.1,288.33 L 521.94,297.96 L 525.41,301.73 L 526.79,305.78 L 526.74,309.92 L 523.2,315.21 L 521.37,316.3 L 519.61,313.65 L 520.07,309.0 L 519.45,308.39 L 516.18,311.74 L 514.37,311.66 L 502.44,305.64 L 500.19,302.76 L 498.64,292.86 L 502.07,288.26 L 502.34,286.09 L 498.36,281.58 L 493.3,279.01 L 490.42,279.17 L 488.71,285.9 L 485.16,283.85 L 483.8,280.98 L 482.01,283.57 L 479.56,283.85 L 478.71,280.61 L 475.77,279.92 L 473.41,282.01 L 467.86,293.6 L 467.12,294.2 L 464.89,293.29 L 463.88,291.49 L 464.22,289.4 L 466.27,286.64 L 467.68,279.13 L 469.55,276.87 L 471.94,275.17 L 480.7,273.31 L 482.12,272.24 L 483.03,268.65 L 487.88,266.35 L 489.44,264.12 L 493.54,265.51 L 496.37,268.67 L 496.84,272.77 L 494.76,274.96 L 495.53,275.12 L 502.19,272.08 L 505.65,265.86 L 509.27,267.16 L 511.1,266.48 L 512.03,261.25 L 513.4,259.6 L 517.94,261.34 L 519.09,258.68 L 523.92,258.89 L 524.49,256.76 L 522.5,247.88 L 523.46,246.41 L 530.23,250.51 Z","M 484.37,258.06 L 482.1,258.14 L 479.96,253.76 L 474.88,251.02 L 472.35,247.47 L 472.15,245.3 L 473.36,242.97 L 477.39,242.49 L 479.77,240.86 L 479.13,233.86 L 481.49,230.59 L 481.9,227.42 L 486.47,225.62 L 490.71,226.81 L 491.66,229.2 L 484.89,244.61 L 484.69,248.94 L 487.54,254.55 L 484.37,258.06 Z","M 518.09,199.08 L 520.77,201.2 L 520.93,203.3 L 524.53,205.49 L 523.21,209.5 L 523.8,215.52 L 525.76,220.08 L 525.17,221.51 L 527.34,222.74 L 527.87,224.68 L 526.08,223.3 L 519.48,223.08 L 516.16,219.78 L 514.2,216.13 L 515.5,212.66 L 513.65,212.48 L 510.19,208.35 L 506.33,206.14 L 503.81,199.14 L 508.33,199.86 L 518.09,199.08 Z","M 465.97,210.46 L 475.72,216.03 L 479.48,215.5 L 481.04,216.62 L 480.42,218.1 L 484.83,216.51 L 484.18,220.69 L 482.46,223.56 L 478.89,225.68 L 478.34,228.48 L 474.2,230.69 L 468.78,231.85 L 464.71,234.85 L 464.89,227.67 L 466.33,223.88 L 467.21,214.71 L 466.6,213.35 L 463.67,212.22 L 464.08,211.15 L 465.97,210.46 Z","M 398.5,261.2 L 385.63,269.77 L 387.82,263.95 L 396.75,255.09 L 400.6,253.31 L 415.78,236.38 L 419.12,234.3 L 420.6,230.77 L 419.74,228.12 L 420.48,225.96 L 423.75,219.69 L 424.62,220.24 L 424.17,226.3 L 426.85,233.91 L 425.32,235.48 L 421.55,236.82 L 418.58,241.3 L 411.74,243.73 L 411.6,246.24 L 405.94,254.83 L 400.92,257.43 L 398.5,261.2 Z","M 438.78,183.2 L 448.46,183.73 L 450.83,185.49 L 452.17,184.63 L 457.51,189.69 L 456.71,193.05 L 457.81,197.98 L 455.37,203.65 L 454.17,203.6 L 452.73,205.03 L 450.74,204.45 L 447.48,200.11 L 442.96,189.05 L 440.57,187.52 L 439.69,185.28 L 437.73,184.96 L 438.78,183.2 Z","M 504.41,216.52 L 509.65,220.34 L 512.6,218.77 L 514.42,219.25 L 516.03,221.96 L 515.81,229.12 L 518.33,231.61 L 520.07,237.15 L 519.82,237.89 L 518.07,237.75 L 517.97,239.14 L 515.38,236.15 L 516.03,241.77 L 511.92,239.5 L 511.21,234.93 L 512.02,229.19 L 509.95,226.15 L 506.33,226.8 L 504.41,216.52 Z","M 490.43,249.23 L 487.72,252.02 L 487.46,250.91 L 488.63,242.88 L 494.07,234.36 L 499.53,220.92 L 499.74,232.48 L 498.97,235.6 L 493.88,240.17 L 490.43,249.23 Z","M 508.8,245.9 L 504.9,248.54 L 500.93,249.06 L 497.81,248.64 L 495.83,245.39 L 501.77,240.05 L 504.49,239.64 L 508.52,241.88 L 508.8,245.9 Z","M 491.52,201.23 L 497.35,205.86 L 499.56,209.26 L 499.65,212.87 L 494.3,209.52 L 494.48,208.66 L 490.1,205.06 L 484.82,209.96 L 486.65,202.06 L 486.13,198.9 L 491.52,201.23 Z"],"VN":["M 231.21,48.88 L 228.48,49.07 L 221.81,52.63 L 220.88,56.49 L 217.72,58.28 L 216.22,57.43 L 213.06,58.26 L 209.68,57.42 L 210.85,61.87 L 207.46,65.38 L 207.83,67.64 L 206.91,69.38 L 201.03,74.36 L 198.0,75.26 L 195.16,81.17 L 194.77,86.1 L 191.95,91.61 L 196.4,99.4 L 206.6,108.75 L 206.26,112.56 L 204.45,112.1 L 206.89,113.52 L 210.55,118.49 L 216.97,123.73 L 217.98,126.37 L 224.14,130.67 L 228.89,136.05 L 232.16,135.9 L 235.16,139.94 L 236.13,139.96 L 236.44,141.65 L 241.32,148.45 L 245.38,151.92 L 249.78,163.05 L 249.82,165.8 L 253.43,177.5 L 253.18,179.04 L 252.49,177.53 L 252.91,187.2 L 255.45,192.64 L 255.8,198.63 L 253.97,196.07 L 252.02,197.85 L 253.45,202.13 L 251.82,201.72 L 252.69,209.47 L 252.5,210.24 L 251.69,208.72 L 251.0,211.44 L 251.68,213.33 L 250.58,215.41 L 249.03,215.55 L 248.14,219.86 L 245.37,220.21 L 236.2,226.62 L 233.25,227.24 L 231.69,230.22 L 229.08,230.56 L 219.33,235.63 L 216.43,233.95 L 215.07,231.22 L 214.09,235.59 L 211.84,235.04 L 210.41,233.32 L 208.38,234.51 L 210.64,234.85 L 210.91,237.35 L 206.01,237.31 L 210.44,239.07 L 211.38,240.37 L 208.21,244.68 L 200.54,238.6 L 206.74,245.33 L 207.82,248.36 L 206.35,249.73 L 204.58,249.79 L 195.44,242.31 L 200.91,249.15 L 201.71,250.69 L 201.07,252.46 L 189.93,257.57 L 186.94,262.48 L 183.47,265.37 L 177.73,265.9 L 179.83,263.39 L 178.53,262.46 L 178.98,248.94 L 179.95,245.41 L 183.11,243.99 L 183.15,243.24 L 182.03,241.19 L 179.44,240.39 L 178.25,238.92 L 175.94,239.47 L 171.98,235.41 L 174.28,233.65 L 179.07,233.34 L 182.34,230.53 L 182.32,227.0 L 186.82,228.12 L 188.34,226.33 L 194.17,225.68 L 195.81,227.81 L 197.23,227.45 L 201.0,228.96 L 200.95,224.89 L 195.86,220.57 L 195.78,214.84 L 198.36,212.77 L 204.93,213.97 L 205.17,209.57 L 209.96,209.05 L 211.03,207.83 L 213.81,207.4 L 218.51,203.6 L 220.48,203.34 L 221.53,204.33 L 223.42,202.58 L 224.24,199.63 L 222.9,191.39 L 225.08,184.54 L 220.5,172.96 L 221.05,168.89 L 223.9,164.16 L 222.99,158.62 L 225.87,153.99 L 224.39,151.69 L 219.63,147.88 L 217.73,144.79 L 221.51,142.28 L 221.58,140.75 L 213.81,135.53 L 212.48,132.8 L 210.61,133.86 L 209.23,133.19 L 207.38,130.53 L 206.65,125.43 L 193.11,112.26 L 189.21,105.26 L 187.13,104.66 L 183.47,101.04 L 183.01,99.51 L 184.01,96.91 L 176.83,94.34 L 163.05,85.91 L 165.91,82.93 L 165.4,79.69 L 174.68,80.64 L 180.36,73.93 L 179.02,70.83 L 176.53,70.78 L 175.2,67.94 L 171.0,66.81 L 174.6,63.36 L 166.55,58.34 L 158.77,62.51 L 149.9,59.24 L 145.67,52.95 L 147.32,45.97 L 145.08,43.85 L 143.79,46.03 L 142.51,46.06 L 141.19,42.22 L 133.59,34.24 L 139.32,27.99 L 145.32,30.74 L 147.86,33.08 L 150.44,31.5 L 153.61,27.67 L 156.39,30.73 L 158.52,27.47 L 163.88,31.53 L 165.76,27.97 L 167.25,27.16 L 168.41,27.01 L 171.07,28.78 L 173.66,27.1 L 176.34,26.79 L 178.15,25.3 L 179.3,21.51 L 186.16,18.0 L 188.91,19.85 L 190.72,22.58 L 195.64,25.1 L 200.74,24.31 L 202.92,26.2 L 207.31,25.34 L 211.29,27.52 L 207.45,32.18 L 207.51,34.87 L 209.19,36.55 L 209.35,40.97 L 214.48,41.89 L 215.99,44.07 L 219.51,45.48 L 220.83,47.19 L 227.64,46.41 L 231.21,48.88 Z"],"ID":["M 258.87,376.34 L 257.37,378.54 L 258.99,380.55 L 259.29,383.27 L 273.51,395.93 L 283.46,392.76 L 295.28,393.41 L 297.19,391.7 L 299.78,391.2 L 301.57,386.23 L 306.42,384.21 L 314.22,384.08 L 315.28,386.31 L 323.74,388.42 L 325.56,389.64 L 330.24,386.31 L 338.34,385.2 L 340.43,386.01 L 342.43,383.24 L 343.62,379.31 L 345.23,378.58 L 345.74,377.13 L 344.54,374.07 L 345.01,372.59 L 351.57,368.0 L 349.92,366.14 L 350.54,361.76 L 352.7,359.55 L 356.16,359.41 L 358.03,352.5 L 358.07,344.21 L 359.91,339.94 L 362.95,337.33 L 365.64,338.29 L 369.22,337.09 L 372.2,338.0 L 373.87,336.95 L 383.66,337.51 L 391.57,340.31 L 389.75,341.9 L 394.96,348.4 L 392.5,349.29 L 390.49,347.71 L 389.5,349.42 L 382.91,349.52 L 384.76,350.04 L 387.76,352.82 L 388.4,353.85 L 387.35,355.9 L 387.86,356.73 L 392.17,358.91 L 392.63,360.82 L 391.48,361.18 L 393.63,361.88 L 392.65,362.93 L 395.1,364.25 L 399.79,371.46 L 399.37,373.18 L 395.16,376.35 L 400.02,381.81 L 409.35,388.25 L 415.13,393.91 L 413.58,395.51 L 407.61,396.74 L 401.95,395.72 L 397.2,391.95 L 398.08,395.46 L 394.42,398.15 L 390.7,406.45 L 389.71,415.86 L 391.37,423.38 L 386.0,425.98 L 380.54,430.99 L 378.59,430.32 L 377.63,427.97 L 377.86,432.73 L 369.88,440.42 L 372.36,440.42 L 372.82,442.74 L 372.35,444.92 L 370.52,446.39 L 374.1,447.53 L 374.72,449.07 L 374.11,452.62 L 370.57,453.31 L 370.41,454.18 L 371.55,453.75 L 370.8,459.2 L 369.05,460.46 L 368.05,459.75 L 369.57,462.97 L 366.24,466.7 L 364.54,470.85 L 343.46,480.51 L 342.32,479.53 L 341.99,472.67 L 340.65,467.18 L 339.32,468.94 L 337.62,468.32 L 336.91,466.98 L 337.62,464.8 L 335.82,466.92 L 333.25,465.53 L 331.18,467.47 L 326.95,468.5 L 325.75,467.9 L 325.36,464.13 L 320.9,464.99 L 315.74,459.73 L 314.7,463.99 L 311.13,466.26 L 308.5,467.58 L 303.23,466.24 L 296.1,470.12 L 295.51,461.81 L 293.37,458.99 L 292.22,460.43 L 287.91,459.73 L 280.6,462.04 L 278.92,460.76 L 280.09,459.31 L 276.81,461.2 L 274.65,459.02 L 269.34,460.28 L 266.68,444.06 L 264.4,441.73 L 265.67,436.06 L 264.79,431.85 L 261.52,427.42 L 255.95,425.02 L 253.94,425.13 L 252.69,423.99 L 254.59,421.14 L 251.05,418.74 L 250.39,416.99 L 251.62,410.58 L 252.67,409.89 L 247.44,404.44 L 246.98,395.08 L 247.67,391.35 L 250.56,389.34 L 248.54,389.58 L 249.63,385.27 L 252.93,381.75 L 254.69,378.1 L 258.87,376.34 Z","M 39.48,322.52 L 45.32,321.76 L 57.09,322.91 L 63.12,328.39 L 64.65,332.05 L 68.8,336.21 L 68.68,339.91 L 69.79,341.62 L 75.65,344.39 L 77.64,347.22 L 83.88,350.22 L 93.58,356.91 L 106.8,373.62 L 112.88,377.67 L 111.89,372.72 L 113.69,371.84 L 115.53,372.47 L 119.78,376.6 L 122.72,381.96 L 127.86,383.16 L 131.79,386.18 L 134.08,389.26 L 135.45,393.77 L 137.97,396.26 L 140.92,397.83 L 145.64,398.39 L 148.69,400.69 L 149.27,402.15 L 148.28,403.44 L 140.64,406.78 L 146.42,405.73 L 153.82,401.78 L 156.16,402.35 L 159.39,405.56 L 161.3,409.63 L 155.32,413.64 L 154.93,416.51 L 156.66,418.24 L 155.48,420.09 L 157.06,423.1 L 160.2,425.32 L 168.18,428.14 L 170.88,427.87 L 173.48,441.0 L 174.36,442.72 L 178.98,445.6 L 178.66,447.97 L 175.67,451.26 L 175.73,454.04 L 181.07,450.27 L 188.19,450.43 L 191.28,452.31 L 199.0,462.63 L 199.24,464.5 L 196.62,467.74 L 195.65,471.16 L 195.78,473.13 L 197.1,474.85 L 195.45,480.39 L 196.38,494.62 L 195.19,505.84 L 194.06,508.22 L 191.89,507.9 L 187.4,503.7 L 182.92,507.0 L 175.54,503.21 L 175.18,505.25 L 176.28,509.47 L 174.91,509.67 L 165.98,500.95 L 162.04,495.8 L 146.81,485.57 L 140.44,480.21 L 133.59,470.92 L 124.42,463.65 L 120.87,457.63 L 116.74,453.92 L 112.91,448.21 L 112.34,442.93 L 106.18,432.25 L 103.2,424.31 L 95.72,415.69 L 92.54,409.66 L 84.01,404.5 L 77.95,385.29 L 74.6,379.07 L 66.1,373.52 L 59.66,370.77 L 57.82,362.57 L 54.49,360.4 L 47.43,350.32 L 44.63,348.08 L 38.68,346.27 L 24.21,332.05 L 18.0,321.6 L 18.35,316.88 L 21.16,315.8 L 25.05,316.13 L 33.48,321.42 L 39.48,322.52 Z","M 513.73,393.69 L 506.03,402.51 L 502.51,404.02 L 494.77,405.28 L 486.62,404.93 L 483.56,402.25 L 482.13,402.12 L 462.84,403.08 L 457.39,402.04 L 449.0,402.99 L 441.75,401.54 L 437.91,402.87 L 435.29,405.9 L 432.3,413.72 L 433.13,419.76 L 436.1,425.01 L 440.72,427.89 L 443.23,433.45 L 449.34,434.06 L 451.26,432.93 L 453.41,429.21 L 458.39,424.34 L 461.1,425.98 L 464.98,426.11 L 470.16,423.14 L 480.33,423.11 L 479.34,421.49 L 485.05,420.01 L 488.53,421.32 L 489.44,423.5 L 488.5,427.3 L 485.95,427.26 L 483.01,425.08 L 480.56,425.56 L 469.67,436.56 L 463.12,438.88 L 459.65,442.28 L 455.37,441.24 L 454.72,441.99 L 454.61,443.13 L 458.38,446.57 L 461.64,448.09 L 466.86,456.63 L 470.35,459.29 L 470.6,461.71 L 472.15,464.22 L 470.78,465.47 L 469.71,471.27 L 475.15,475.68 L 477.0,479.07 L 479.64,478.74 L 480.51,481.51 L 480.05,484.24 L 477.5,483.38 L 477.54,484.56 L 473.36,484.75 L 467.39,486.74 L 466.39,488.08 L 466.12,491.65 L 458.61,490.42 L 456.91,487.42 L 459.1,479.21 L 454.0,476.3 L 446.97,469.6 L 449.69,463.65 L 449.65,456.67 L 448.62,455.3 L 446.77,454.89 L 443.0,455.26 L 436.44,459.99 L 436.32,461.73 L 438.63,466.7 L 439.37,472.73 L 438.13,479.1 L 439.1,488.03 L 436.74,496.92 L 439.27,504.4 L 437.28,503.57 L 431.27,504.17 L 427.36,506.12 L 424.69,504.74 L 421.66,501.6 L 421.4,499.74 L 425.3,486.45 L 425.79,478.23 L 423.4,473.11 L 423.19,469.47 L 421.43,468.56 L 415.29,469.88 L 413.17,467.54 L 412.25,463.48 L 413.01,459.64 L 411.76,456.15 L 416.92,452.15 L 418.26,446.39 L 420.75,442.85 L 420.54,434.09 L 423.87,425.66 L 427.26,421.86 L 429.48,424.91 L 427.43,411.9 L 429.84,409.74 L 428.89,406.41 L 430.63,402.94 L 436.58,394.1 L 437.47,393.89 L 439.03,396.15 L 442.14,396.06 L 446.58,389.36 L 450.15,388.1 L 455.53,389.51 L 458.67,392.47 L 463.27,392.12 L 472.77,393.3 L 479.48,396.2 L 483.29,394.59 L 497.73,396.12 L 503.46,393.23 L 505.75,390.5 L 507.8,389.73 L 508.91,387.01 L 512.04,385.75 L 514.7,382.31 L 517.44,382.08 L 519.49,385.16 L 513.73,393.69 Z","M 221.21,511.4 L 226.1,514.9 L 237.18,516.08 L 240.28,519.19 L 241.75,523.53 L 242.99,524.56 L 253.28,525.85 L 256.73,524.89 L 262.08,526.44 L 268.38,526.32 L 272.19,527.2 L 274.81,524.82 L 276.77,519.98 L 279.01,518.4 L 281.31,518.6 L 284.8,522.82 L 290.79,522.17 L 294.09,524.27 L 298.3,524.82 L 299.93,526.29 L 307.48,526.85 L 309.3,531.8 L 311.74,533.2 L 311.74,537.37 L 315.4,539.14 L 323.48,540.25 L 333.05,538.72 L 338.71,541.4 L 339.28,544.97 L 338.33,551.7 L 339.92,555.04 L 341.81,556.4 L 341.62,557.83 L 336.5,555.22 L 330.88,554.45 L 319.4,549.71 L 309.81,551.77 L 290.29,550.02 L 275.21,547.4 L 265.71,543.05 L 253.07,539.93 L 244.04,539.3 L 239.21,541.48 L 230.29,540.25 L 219.72,536.01 L 205.87,534.28 L 205.23,532.11 L 206.94,528.99 L 201.57,526.87 L 195.5,525.49 L 185.83,525.31 L 186.13,523.53 L 187.76,522.44 L 188.02,523.89 L 189.64,524.41 L 192.5,519.17 L 194.7,518.95 L 196.06,513.23 L 199.52,509.83 L 212.04,512.92 L 215.16,511.42 L 215.74,509.66 L 221.21,511.4 Z","M 479.62,554.34 L 473.34,557.09 L 467.05,557.41 L 459.66,560.0 L 458.54,558.69 L 455.71,558.59 L 454.26,560.3 L 449.37,560.62 L 441.27,558.37 L 434.1,557.95 L 430.57,559.31 L 428.87,556.62 L 429.99,551.95 L 431.47,552.21 L 437.99,549.23 L 442.27,548.93 L 456.21,554.6 L 464.92,552.54 L 470.88,555.45 L 472.72,554.99 L 474.77,552.15 L 479.69,550.01 L 480.83,548.62 L 478.15,548.02 L 479.61,546.46 L 480.8,546.67 L 481.82,547.45 L 482.28,550.42 L 479.03,552.98 L 479.62,554.34 Z","M 402.73,550.23 L 404.32,550.83 L 406.87,549.46 L 408.9,549.61 L 410.6,551.87 L 411.18,550.46 L 414.15,549.9 L 417.54,556.12 L 415.48,557.49 L 413.76,556.7 L 411.13,557.25 L 412.58,558.9 L 406.67,559.29 L 405.32,558.56 L 405.01,556.23 L 401.85,559.02 L 383.0,563.37 L 378.44,561.81 L 378.35,556.06 L 379.22,553.84 L 384.73,551.06 L 391.45,552.06 L 395.44,556.85 L 398.17,557.13 L 402.12,555.85 L 402.6,554.84 L 395.59,550.64 L 394.59,547.41 L 397.36,546.39 L 400.64,546.95 L 402.73,550.23 Z","M 514.29,560.73 L 514.53,562.6 L 517.26,561.77 L 518.08,562.42 L 517.26,564.89 L 514.92,565.29 L 516.72,570.31 L 514.97,572.89 L 506.03,581.01 L 501.82,581.59 L 496.51,584.29 L 492.94,583.74 L 492.44,582.13 L 494.15,579.83 L 492.03,577.95 L 494.03,572.04 L 499.49,567.44 L 500.81,568.81 L 504.22,568.66 L 506.31,564.9 L 514.29,560.73 Z","M 196.76,435.72 L 200.96,441.8 L 201.75,447.21 L 204.37,451.85 L 211.93,453.67 L 210.06,455.1 L 208.48,459.09 L 209.41,462.05 L 198.24,457.9 L 196.73,454.85 L 197.24,452.33 L 195.04,449.2 L 194.69,447.08 L 190.79,445.36 L 187.29,446.14 L 183.79,444.75 L 184.75,442.64 L 187.82,440.9 L 187.79,438.28 L 189.24,436.89 L 191.34,436.08 L 193.27,439.52 L 194.16,438.3 L 193.59,436.2 L 196.76,435.72 Z","M 431.11,566.77 L 435.77,570.21 L 436.94,572.59 L 439.49,572.55 L 441.36,573.79 L 445.18,577.79 L 445.99,579.14 L 445.51,580.33 L 443.74,581.98 L 439.41,583.45 L 436.35,582.58 L 432.95,580.58 L 430.92,577.95 L 425.42,574.7 L 416.81,573.58 L 414.69,570.43 L 415.9,569.1 L 420.32,567.87 L 428.66,568.1 L 431.11,566.77 Z"]},"centroids":{"MY":[134.65,342.69],"SG":[161.67,387.57],"TH":[114.87,156.06],"PH":[455.67,142.08],"VN":[203.31,130.49],"ID":[332.08,413.6]},"viewBox":[0,0,560,610]},"flags":{"my":"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGlkPSJmbGFnLWljb25zLW15IiB2aWV3Qm94PSIwIDAgNjQwIDQ4MCI+CiAgPGcgY2xpcC1wYXRoPSJ1cmwoI215LWEpIj4KICAgIDxwYXRoIGZpbGw9IiNDMDAiIGQ9Ik0wIDBoNjQwdjQ4MEgweiIvPgogICAgPHBhdGggZmlsbD0iI0MwMCIgZD0iTTAgMGg2NDB2MzQuM0gweiIvPgogICAgPHBhdGggZmlsbD0iI2ZmZiIgZD0iTTAgMzQuM2g2NDB2MzQuM0gweiIvPgogICAgPHBhdGggZmlsbD0iI0MwMCIgZD0iTTAgNjguNmg2NDB2MzQuM0gweiIvPgogICAgPHBhdGggZmlsbD0iI2ZmZiIgZD0iTTAgMTAyLjloNjQwVjEzN0gweiIvPgogICAgPHBhdGggZmlsbD0iI0MwMCIgZD0iTTAgMTM3LjFoNjQwdjM0LjNIMHoiLz4KICAgIDxwYXRoIGZpbGw9IiNmZmYiIGQ9Ik0wIDE3MS40aDY0MHYzNC4zSDB6Ii8+CiAgICA8cGF0aCBmaWxsPSIjQzAwIiBkPSJNMCAyMDUuN2g2NDBWMjQwSDB6Ii8+CiAgICA8cGF0aCBmaWxsPSIjZmZmIiBkPSJNMCAyNDBoNjQwdjM0LjNIMHoiLz4KICAgIDxwYXRoIGZpbGw9IiNDMDAiIGQ9Ik0wIDI3NC4zaDY0MHYzNC4zSDB6Ii8+CiAgICA8cGF0aCBmaWxsPSIjZmZmIiBkPSJNMCAzMDguNmg2NDB2MzQuM0gweiIvPgogICAgPHBhdGggZmlsbD0iI0MwMCIgZD0iTTAgMzQyLjloNjQwVjM3N0gweiIvPgogICAgPHBhdGggZmlsbD0iI2ZmZiIgZD0iTTAgMzc3LjFoNjQwdjM0LjNIMHoiLz4KICAgIDxwYXRoIGZpbGw9IiNDMDAiIGQ9Ik0wIDQxMS40aDY0MHYzNC4zSDB6Ii8+CiAgICA8cGF0aCBmaWxsPSIjZmZmIiBkPSJNMCA0NDUuN2g2NDBWNDgwSDB6Ii8+CiAgICA8cGF0aCBmaWxsPSIjMDA2IiBkPSJNMCAuNWgzMjB2Mjc0LjNIMHoiLz4KICAgIDxwYXRoIGZpbGw9IiNGQzAiIGQ9Im0yMDcuNSA3My44IDYgNDAuNyAyMy0zNC0xMi40IDM5LjIgMzUuNS0yMC44LTI4LjEgMzAgNDEtMy4yLTM4LjMgMTQuOCAzOC4zIDE0LjgtNDEtMy4yIDI4LjEgMzAtMzUuNS0yMC44IDEyLjMgMzkuMy0yMy0zNC4xLTYgNDAuNy01LjktNDAuNy0yMyAzNCAxMi40LTM5LjItMzUuNSAyMC44IDI4LTMwLTQxIDMuMiAzOC40LTE0LjgtMzguMy0xNC44IDQxIDMuMi0yOC4xLTMwIDM1LjUgMjAuOC0xMi40LTM5LjMgMjMgMzQuMXptLTMzLjMgMS43YTcxIDcxIDAgMCAwLTEwMCA2NSA3MSA3MSAwIDAgMCAxMDAgNjUgODAgODAgMCAwIDEtODMuMiA2LjIgODAgODAgMCAwIDEtNDMuNC03MS4yIDgwIDgwIDAgMCAxIDEyNi42LTY1Ii8+CiAgPC9nPgogIDxkZWZzPgogICAgPGNsaXBQYXRoIGlkPSJteS1hIj4KICAgICAgPHBhdGggZmlsbD0iI2ZmZiIgZD0iTTAgMGg2NDB2NDgwSDB6Ii8+CiAgICA8L2NsaXBQYXRoPgogIDwvZGVmcz4KPC9zdmc+Cg==","sg":"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGlkPSJmbGFnLWljb25zLXNnIiB2aWV3Qm94PSIwIDAgNjQwIDQ4MCI+CiAgPGRlZnM+CiAgICA8Y2xpcFBhdGggaWQ9InNnLWEiPgogICAgICA8cGF0aCBmaWxsLW9wYWNpdHk9Ii43IiBkPSJNMCAwaDY0MHY0ODBIMHoiLz4KICAgIDwvY2xpcFBhdGg+CiAgPC9kZWZzPgogIDxnIGZpbGwtcnVsZT0iZXZlbm9kZCIgY2xpcC1wYXRoPSJ1cmwoI3NnLWEpIj4KICAgIDxwYXRoIGZpbGw9IiNmZmYiIGQ9Ik0tMjAgMGg3MjB2NDgwSC0yMHoiLz4KICAgIDxwYXRoIGZpbGw9IiNkZjAwMDAiIGQ9Ik0tMjAgMGg3MjB2MjQwSC0yMHoiLz4KICAgIDxwYXRoIGZpbGw9IiNmZmYiIGQ9Ik0xNDYgNDAuMmE4NC40IDg0LjQgMCAwIDAgLjggMTY1LjIgODYgODYgMCAwIDEtMTA2LjYtNTkgODYgODYgMCAwIDEgNTktMTA2YzE2LTQuNiAzMC44LTQuNyA0Ni45LS4yeiIvPgogICAgPHBhdGggZmlsbD0iI2ZmZiIgZD0ibTEzMyAxMTAgNC45IDE1LTEzLTkuMi0xMi44IDkuNCA0LjctMTUuMi0xMi44LTkuMyAxNS45LS4yIDUtMTUgNSAxNWgxNS44em0xNy41IDUyIDUgMTUuMS0xMy05LjItMTIuOSA5LjMgNC44LTE1LjEtMTIuOC05LjQgMTUuOS0uMSA0LjktMTUuMSA1IDE1aDE2em01OC41LS40IDQuOSAxNS4yLTEzLTkuMy0xMi44IDkuMyA0LjctMTUuMS0xMi44LTkuMyAxNS45LS4yIDUtMTUgNSAxNWgxNS44em0xNy40LTUxLjYgNC45IDE1LjEtMTMtOS4yLTEyLjggOS4zIDQuOC0xNS4xLTEyLjktOS40IDE2LS4xIDQuOC0xNS4xIDUgMTVoMTZ6bS00Ni4zLTM0LjMgNSAxNS4yLTEzLTkuMy0xMi45IDkuNCA0LjgtMTUuMi0xMi44LTkuNCAxNS44LS4xIDUtMTUuMSA1IDE1aDE2eiIvPgogIDwvZz4KPC9zdmc+Cg==","th":"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGlkPSJmbGFnLWljb25zLXRoIiB2aWV3Qm94PSIwIDAgNjQwIDQ4MCI+CiAgPGcgZmlsbC1ydWxlPSJldmVub2RkIj4KICAgIDxwYXRoIGZpbGw9IiNmNGY1ZjgiIGQ9Ik0wIDBoNjQwdjQ4MEgweiIvPgogICAgPHBhdGggZmlsbD0iIzJkMmE0YSIgZD0iTTAgMTYyLjVoNjQwdjE2MEgweiIvPgogICAgPHBhdGggZmlsbD0iI2E1MTkzMSIgZD0iTTAgMGg2NDB2ODIuNUgwem0wIDQwMGg2NDB2ODBIMHoiLz4KICA8L2c+Cjwvc3ZnPgo=","ph":"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGlkPSJmbGFnLWljb25zLXBoIiB2aWV3Qm94PSIwIDAgNjQwIDQ4MCI+CiAgPHBhdGggZmlsbD0iIzAwMzhhOCIgZD0iTTAgMGg2NDB2MjQwSDB6Ii8+CiAgPHBhdGggZmlsbD0iI2NlMTEyNiIgZD0iTTAgMjQwaDY0MHYyNDBIMHoiLz4KICA8cGF0aCBmaWxsPSIjZmZmIiBkPSJNNDE1LjcgMjQwIDAgNDgwVjAiLz4KICA8cGF0aCBmaWxsPSIjZmNkMTE2IiBkPSJNMjYuNyA0Mi40IDQxIDU1bDE2LjYtOS4yLTcuNCAxNy41IDE0IDEzLTE5LTEuNi04LjEgMTcuMi00LjMtMTguNUwxNCA3MWwxNi4zLTEwem0zMjMuOCAxNzIuMy40IDE5IDE4IDYuMy0xOCA2LjItLjQgMTktMTEuNS0xNS4xLTE4LjIgNS41IDEwLjgtMTUuNi0xMC44LTE1LjYgMTguMiA1LjV6TTM3LjIgMzg4LjFsOCAxNy4yIDE5LTEuNi0xMy45IDEzIDcuNCAxNy41LTE2LjYtOS4xLTE0LjQgMTIuNCAzLjYtMTguN0wxNCA0MDlsMTguOS0yLjR6bTExNC4yLTI0OS02LjIgNi4yIDMuMSA0Ny0zIC4zLTUuNy00Mi45LTUuMSA1IDcuNiAzOC40YTQ4IDQ4IDAgMCAwLTE3LjIgNy4xbC0yMS43LTMyLjRIOTZsMjYuNCAzNC4zLTIuNCAyLTMxLjEtMzUuNWgtOC44djguOGwzNS40IDMxLTIgMi41LTM0LjMtMjYuM3Y3LjFsMzIuNSAyMS43cS01LjIgNy44LTcuMSAxNy4yTDY2LjMgMjIzbC01LjEgNSA0Mi45IDUuN3EtLjMgMS42LS4zIDMuMWwtNDctMy02LjIgNi4yIDYuMiA2LjIgNDctMy4xLjMgMy4xLTQyLjkgNS43IDUgNSAzOC40LTcuNmE0OCA0OCAwIDAgMCA3LjEgMTcuMmwtMzIuNSAyMS43djcuMmwzNC4zLTI2LjMgMiAyLjQtMzUuNCAzMXY4LjhIODlsMzEtMzUuNCAyLjUgMkw5NiAzMTIuMmg3LjJsMjEuNy0zMi41cTcuOCA1LjIgMTcuMiA3LjFsLTcuNiAzOC40IDUgNSA1LjctNDIuOXExLjUuMyAzLjEuM2wtMyA0NyA2LjEgNi4yIDYuMy02LjItMy4xLTQ3IDMtLjMgNS43IDQzIDUuMS01LjEtNy42LTM4LjRhNDggNDggMCAwIDAgMTcuMi03LjFsMjEuNyAzMi41aDcuMmwtMjYuNC0zNC4zIDIuNC0yIDMxLjEgMzUuNGg4Ljh2LTguOGwtMzUuNC0zMSAyLTIuNCAzNC4zIDI2LjN2LTcuMmwtMzIuNS0yMS43cTUuMi03LjggNy4xLTE3LjJsMzguMyA3LjYgNS4xLTUtNDIuOS01LjdxLjMtMS41LjMtMy4xbDQ3IDMgNi4yLTYuMS02LjItNi4yLTQ3IDMtLjMtMyA0Mi45LTUuNy01LTUtMzguNCA3LjVhNDggNDggMCAwIDAtNy4xLTE3LjJsMzIuNS0yMS43di03LjFsLTM0LjMgMjYuMy0yLTIuNCAzNS40LTMxdi04LjlIMjE0bC0zMSAzNS41LTIuNS0yIDI2LjQtMzQuM2gtNy4yTDE3OCAyMDAuMnEtNy44LTUuMi0xNy4yLTcuMWw3LjYtMzguMy01LTUtNS43IDQyLjgtMy4xLS4zIDMtNDd6Ii8+Cjwvc3ZnPgo=","vn":"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGlkPSJmbGFnLWljb25zLXZuIiB2aWV3Qm94PSIwIDAgNjQwIDQ4MCI+CiAgPGRlZnM+CiAgICA8Y2xpcFBhdGggaWQ9InZuLWEiPgogICAgICA8cGF0aCBmaWxsLW9wYWNpdHk9Ii43IiBkPSJNLTg1LjMgMGg2ODIuNnY1MTJILTg1LjN6Ii8+CiAgICA8L2NsaXBQYXRoPgogIDwvZGVmcz4KICA8ZyBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcGF0aD0idXJsKCN2bi1hKSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoODApc2NhbGUoLjkzNzUpIj4KICAgIDxwYXRoIGZpbGw9IiNkYTI1MWQiIGQ9Ik0tMTI4IDBoNzY4djUxMmgtNzY4eiIvPgogICAgPHBhdGggZmlsbD0iI2ZmMCIgZD0iTTM0OS42IDM4MSAyNjAgMzE0LjNsLTg5IDY3LjNMMjA0IDI3MmwtODktNjcuNyAxMTAuMS0xIDM0LjItMTA5LjRMMjk0IDIwM2wxMTAuMS4xLTg4LjUgNjguNCAzMy45IDEwOS42eiIvPgogIDwvZz4KPC9zdmc+Cg==","id":"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGlkPSJmbGFnLWljb25zLWlkIiB2aWV3Qm94PSIwIDAgNjQwIDQ4MCI+CiAgPHBhdGggZmlsbD0iI2U3MDAxMSIgZD0iTTAgMGg2NDB2MjQwSDBaIi8+CiAgPHBhdGggZmlsbD0iI2ZmZiIgZD0iTTAgMjQwaDY0MHYyNDBIMFoiLz4KPC9zdmc+Cg=="}}</script>
+<script>
+(function(){
+  const DATA = JSON.parse(document.getElementById('geo-data').textContent);
+  const GEO = DATA.geo;
+  const FLAGS = DATA.flags;
+
+  const COUNTRIES = {
+    SG: { name: 'Singapore', currency: 'SGD', rail: 'FAST',              usdPer: 1.342 },
+    MY: { name: 'Malaysia',  currency: 'MYR', rail: 'DuitNow',           usdPer: 4.47  },
+    TH: { name: 'Thailand',  currency: 'THB', rail: 'PromptPay',         usdPer: 34.8  },
+    PH: { name: 'Philippines', currency: 'PHP', rail: 'InstaPay/PESONet',usdPer: 56.2  },
+    VN: { name: 'Vietnam',   currency: 'VND', rail: 'NAPAS 247',         usdPer: 25400 },
+    ID: { name: 'Indonesia', currency: 'IDR', rail: 'BI-FAST',           usdPer: 15900 },
+  };
+  const ORDER = ['SG','MY','TH','PH','VN','ID'];
+  const FLAG_KEY = { SG:'sg', MY:'my', TH:'th', PH:'ph', VN:'vn', ID:'id' };
+
+  let sender = '';
+  let recipient = '';
+  let paymentInFlight = false;
+  let spreads = {}; // corridor bps spread, jittered on refresh
+  let deltas = {};  // 24h-style % change per currency, jittered on refresh
+
+  function usdPerOf(code){
+    return code === 'USD' ? 1 : COUNTRIES[code].usdPer;
+  }
+
+  function baseSpread(a, b){
+    // deterministic-ish base spread per pair so it's not fully random each load
+    let seed = (a.charCodeAt(0) + b.charCodeAt(1) + a.length * 7) % 40;
+    return 8 + seed;
+  }
+  function jitterSpreads(){
+    ['USD', ...ORDER].forEach(a => {
+      ORDER.forEach(b => {
+        if (a === b) return;
+        const key = a + b;
+        const base = baseSpread(a, b);
+        spreads[key] = Math.max(3, base + (Math.random() * 10 - 5));
+      });
+    });
+    ORDER.forEach(code => {
+      deltas[code] = (Math.random() * 0.7 - 0.32);
+    });
+  }
+  jitterSpreads();
+
+  function fxRate(from, to){
+    return usdPerOf(to) / usdPerOf(from);
+  }
+
+  function fmtNum(n){
+    if (n >= 1000) return n.toLocaleString('en-US', { maximumFractionDigits: 0 });
+    if (n >= 1) return n.toLocaleString('en-US', { maximumFractionDigits: 2 });
+    return n.toLocaleString('en-US', { maximumFractionDigits: 4 });
+  }
+
+  // ---------- populate selects ----------
+  const senderSel = document.getElementById('sender-select');
+  const recipientSel = document.getElementById('recipient-select');
+  ORDER.forEach(code => {
+    const o1 = document.createElement('option'); o1.value = code; o1.textContent = COUNTRIES[code].name;
+    senderSel.appendChild(o1);
+    const o2 = document.createElement('option'); o2.value = code; o2.textContent = COUNTRIES[code].name;
+    recipientSel.appendChild(o2);
+  });
+  // ---------- build map ----------
+  const countriesLayer = document.getElementById('countries-layer');
+  const badgesLayer = document.getElementById('badges-layer');
+  const connectorLayer = document.getElementById('connector-layer');
+
+  const pieceEls = {};
+
+  function buildSgMarker(code){
+    const c = GEO.centroids.SG;
+    const ns = 'http://www.w3.org/2000/svg';
+    const g = document.createElementNS(ns, 'g');
+    g.setAttribute('class', 'sg-marker country-piece');
+    g.dataset.id = 'SG';
+
+    const glow = document.createElementNS(ns, 'circle');
+    glow.setAttribute('class', 'sg-dot-glow'); glow.setAttribute('cx', c[0]); glow.setAttribute('cy', c[1]); glow.setAttribute('r', 6);
+    const dot = document.createElementNS(ns, 'circle');
+    dot.setAttribute('class', 'sg-dot'); dot.setAttribute('cx', c[0]); dot.setAttribute('cy', c[1]); dot.setAttribute('r', 3);
+    // Hit radius is deliberately much larger than the visible dot -- Singapore is
+    // tiny next to Malaysia's peninsula, so its clickable zone gets a generous
+    // invisible margin. This marker is also built and appended LAST (after the
+    // loop below) so it sits on top of Malaysia's hit-path in paint/event order
+    // and always wins where the two overlap, without changing how anything looks.
+    const hit = document.createElementNS(ns, 'circle');
+    hit.setAttribute('class', 'sg-hit'); hit.setAttribute('cx', c[0]); hit.setAttribute('cy', c[1]); hit.setAttribute('r', 26);
+
+    const label = document.createElementNS(ns, 'text');
+    label.setAttribute('class', 'country-label'); label.setAttribute('x', c[0]); label.setAttribute('y', c[1] - 12);
+    label.textContent = 'SG';
+
+    g.appendChild(glow); g.appendChild(dot); g.appendChild(label); g.appendChild(hit);
+    countriesLayer.appendChild(g);
+    pieceEls.SG = g;
+    addFlagBadge(code, c);
+  }
+
+  ORDER.forEach(code => {
+    if (code === 'SG'){
+      return; // built last, after the loop -- see buildSgMarker()
+    }
+
+    const paths = GEO.paths[code];
+    const c = GEO.centroids[code];
+    const ns = 'http://www.w3.org/2000/svg';
+    const g = document.createElementNS(ns, 'g');
+    g.setAttribute('class', 'country-piece');
+    g.dataset.id = code;
+
+    paths.forEach(d => {
+      const glow = document.createElementNS(ns, 'path');
+      glow.setAttribute('class', 'country-glow'); glow.setAttribute('d', d);
+      g.appendChild(glow);
+    });
+    paths.forEach(d => {
+      const line = document.createElementNS(ns, 'path');
+      line.setAttribute('class', 'country-line'); line.setAttribute('d', d);
+      g.appendChild(line);
+    });
+    paths.forEach(d => {
+      const hit = document.createElementNS(ns, 'path');
+      hit.setAttribute('class', 'country-hit'); hit.setAttribute('d', d);
+      g.appendChild(hit);
+    });
+
+    const label = document.createElementNS(ns, 'text');
+    label.setAttribute('class', 'country-label');
+    label.setAttribute('x', c[0]); label.setAttribute('y', c[1]);
+    label.textContent = code;
+    g.appendChild(label);
+
+    countriesLayer.appendChild(g);
+    pieceEls[code] = g;
+    addFlagBadge(code, c);
+  });
+
+  buildSgMarker('SG');
+
+  function addFlagBadge(code, c){
+    const ns = 'http://www.w3.org/2000/svg';
+    const g = document.createElementNS(ns, 'g');
+    g.setAttribute('class', 'flag-badge');
+    g.dataset.id = code;
+    const w = 62, h = 22;
+    const x = c[0] - w/2, y = c[1] - h - 10;
+    const bg = document.createElementNS(ns, 'rect');
+    bg.setAttribute('class', 'flag-badge-bg');
+    bg.setAttribute('x', x); bg.setAttribute('y', y); bg.setAttribute('width', w); bg.setAttribute('height', h); bg.setAttribute('rx', 5);
+    const img = document.createElementNS(ns, 'image');
+    img.setAttribute('href', FLAGS[FLAG_KEY[code]]);
+    img.setAttribute('x', x + 6); img.setAttribute('y', y + 4); img.setAttribute('width', 16); img.setAttribute('height', 12);
+    const text = document.createElementNS(ns, 'text');
+    text.setAttribute('class', 'flag-badge-name');
+    text.setAttribute('x', x + 27); text.setAttribute('y', y + 14.5);
+    text.textContent = code;
+    g.appendChild(bg); g.appendChild(img); g.appendChild(text);
+    badgesLayer.appendChild(g);
+  }
+
+  // connector elements
+  const ns = 'http://www.w3.org/2000/svg';
+  const connLine = document.createElementNS(ns, 'path'); connLine.setAttribute('class', 'connector-line');
+  const connPulse = document.createElementNS(ns, 'path'); connPulse.setAttribute('class', 'connector-pulse');
+  connectorLayer.appendChild(connLine); connectorLayer.appendChild(connPulse);
+
+  let pulseAnim = null;
+
+  function updateConnector(){
+    if (sender && recipient){
+      const a = GEO.centroids[sender], b = GEO.centroids[recipient];
+      const mx = (a[0]+b[0])/2, my = (a[1]+b[1])/2;
+      // slight bow perpendicular to the line for a slick curved feel
+      const dx = b[0]-a[0], dy = b[1]-a[1];
+      const len = Math.hypot(dx,dy) || 1;
+      const nx = -dy/len, ny = dx/len;
+      const bow = Math.min(36, len * 0.14);
+      const cx = mx + nx*bow, cy = my + ny*bow;
+      const d = `M ${a[0]},${a[1]} Q ${cx},${cy} ${b[0]},${b[1]}`;
+      connLine.setAttribute('d', d);
+      connPulse.setAttribute('d', d);
+      connLine.classList.add('show');
+      connPulse.classList.add('show');
+
+      const pathLen = connLine.getTotalLength();
+      connPulse.setAttribute('stroke-dasharray', `${pathLen*0.12} ${pathLen*0.88}`);
+      if (pulseAnim) pulseAnim.cancel();
+      connPulse.setAttribute('stroke-dashoffset', 0);
+      pulseAnim = connPulse.animate(
+        [{ strokeDashoffset: 0 }, { strokeDashoffset: -pathLen }],
+        { duration: 2200, iterations: Infinity, easing: 'linear' }
+      );
+    } else {
+      connLine.classList.remove('show');
+      connPulse.classList.remove('show');
+      if (pulseAnim) { pulseAnim.cancel(); pulseAnim = null; }
+    }
+  }
+
+  // ---------- sync UI from state ----------
+  function syncAll(){
+    ORDER.forEach(code => {
+      const el = pieceEls[code];
+      el.classList.toggle('is-sender', code === sender);
+      el.classList.toggle('is-recipient', code === recipient);
+    });
+    document.querySelectorAll('.flag-badge').forEach(b => {
+      b.classList.toggle('show', b.dataset.id === sender || b.dataset.id === recipient);
+    });
+    updateConnector();
+    updateFxTicker();
+    updateRoutePreview();
+    updateRouteCard();
+    updateSendButton();
+  }
+
+  function updateRoutePreview(){
+    const receives = document.getElementById('recipient-receives');
+    if (recipient){
+      const amt = parseFloat(document.getElementById('amount-input').value) || 0;
+      const rate = sender ? fxRate(sender, recipient) : 1;
+      receives.value = sender ? `${fmtNum(amt*rate)} ${COUNTRIES[recipient].currency}` : '—';
+    } else {
+      receives.value = '—';
+    }
+  }
+
+  function updateFxTicker(){
+    const base = sender || 'USD'; // defaults to USD (most widely referenced) until a sender is chosen
+    const baseCode = base === 'USD' ? 'USD' : COUNTRIES[base].currency;
+    document.getElementById('fx-base-code').textContent = baseCode;
+    document.getElementById('fx-base-chip').classList.toggle('is-set', !!sender);
+
+    const rows = ORDER.filter(c => c !== base).map(code => {
+      const key = base + code;
+      return {
+        code,
+        spread: spreads[key] !== undefined ? spreads[key] : baseSpread(base, code),
+        rate: fxRate(base, code),
+        delta: deltas[code] !== undefined ? deltas[code] : 0,
+      };
+    }).sort((a,b) => a.spread - b.spread);
+
+    const container = document.getElementById('fx-rows');
+    container.innerHTML = '';
+    rows.forEach((r, i) => {
+      const row = document.createElement('div');
+      row.className = 'fx-row' + (i === 0 ? ' best' : '') + (r.code === recipient ? ' is-recipient' : '');
+      const up = r.delta >= 0;
+      row.innerHTML = `
+        <span class="fx-left">
+          <span class="fx-rank">${i+1}</span>
+          <img class="fx-flag" src="${FLAGS[FLAG_KEY[r.code]]}" />
+          <span class="fx-ccy">${COUNTRIES[r.code].currency}</span>
+        </span>
+        <span class="fx-right">
+          <span class="fx-value">${fmtNum(r.rate)}</span>
+          <span class="fx-delta ${up ? 'up' : 'down'}">${up ? '▲' : '▼'} ${Math.abs(r.delta).toFixed(2)}%</span>
+        </span>
+      `;
+      container.appendChild(row);
+    });
+
+    // fx rate line under sender amount
+    const fxLine = document.getElementById('fx-rate-line');
+    if (sender && recipient){
+      fxLine.innerHTML = `<b>1 ${COUNTRIES[sender].currency} = ${fmtNum(fxRate(sender, recipient))} ${COUNTRIES[recipient].currency}</b> · via ${COUNTRIES[recipient].rail}`;
+    } else {
+      fxLine.textContent = 'Select a sender and recipient to see the live rate.';
+    }
+  }
+
+  function updateRouteCard(){
+    const card = document.getElementById('route-card');
+    if (sender && recipient){
+      card.classList.add('show');
+      document.getElementById('route-sender').innerHTML = `<img src="${FLAGS[FLAG_KEY[sender]]}" /><div><div class="rs-country">${COUNTRIES[sender].name}</div><div class="rs-rail">${COUNTRIES[sender].rail}</div></div>`;
+      document.getElementById('route-recipient').innerHTML = `<img src="${FLAGS[FLAG_KEY[recipient]]}" /><div><div class="rs-country">${COUNTRIES[recipient].name}</div><div class="rs-rail">${COUNTRIES[recipient].rail}</div></div>`;
+    } else {
+      card.classList.remove('show');
+    }
+  }
+
+  function updateSendButton(){
+    const btn = document.getElementById('send-btn');
+    if (paymentInFlight) return;
+    if (sender && recipient){
+      btn.disabled = false;
+      btn.textContent = 'Send payment';
+    } else {
+      btn.disabled = true;
+      btn.textContent = 'Select sender and recipient to continue';
+    }
+  }
+
+  // ---------- interactions ----------
+  senderSel.addEventListener('change', () => {
+    if (paymentInFlight) return;
+    sender = senderSel.value;
+    if (sender === recipient) recipient = '';
+    recipientSel.value = recipient;
+    resetProcessTrack();
+    syncAll();
+  });
+  recipientSel.addEventListener('change', () => {
+    if (paymentInFlight) return;
+    recipient = recipientSel.value;
+    if (recipient === sender) sender = '';
+    senderSel.value = sender;
+    resetProcessTrack();
+    syncAll();
+  });
+
+  document.querySelectorAll('.country-hit, .sg-hit').forEach(el => {
+    el.addEventListener('click', () => {
+      if (paymentInFlight) return;
+      const code = el.closest('.country-piece').dataset.id;
+      if (code === sender) { sender = ''; }
+      else if (code === recipient) { recipient = ''; }
+      else if (!sender) { sender = code; }
+      else if (!recipient) { recipient = code; }
+      else { sender = code; recipient = ''; }
+      senderSel.value = sender; recipientSel.value = recipient;
+      resetProcessTrack();
+      syncAll();
+    });
+  });
+
+  document.getElementById('fx-refresh').addEventListener('click', (e) => {
+    jitterSpreads();
+    updateFxTicker();
+    const btn = e.currentTarget;
+    btn.classList.remove('spin'); void btn.offsetWidth; btn.classList.add('spin');
+  });
+
+  // ---------- five-step process ----------
+  const STEPS = [
+    { label: 'Proxy resolution' },
+    { label: 'Compliance screening' },
+    { label: 'FX conversion' },
+    { label: 'ISO 20022 routing' },
+    { label: 'Settlement' },
+  ];
+  const processTrack = document.getElementById('process-track');
+  const stepsContainer = document.getElementById('process-steps');
+  stepsContainer.innerHTML = STEPS.map((s, i) => `
+    <div class="process-step" data-i="${i}">
+      <div class="step-dot"></div>
+      <div class="step-label">${s.label}</div>
+    </div>
+  `).join('');
+
+  function resetProcessTrack(){
+    if (paymentInFlight) return;
+    processTrack.classList.remove('show');
+    document.getElementById('process-bar-fill').style.width = '0%';
+    document.querySelectorAll('.process-step').forEach(el => el.classList.remove('active','done'));
+    document.getElementById('process-status').textContent = 'Processing…';
+    document.getElementById('process-status').classList.remove('done');
+  }
+
+  document.getElementById('send-btn').addEventListener('click', () => {
+    if (paymentInFlight || !sender || !recipient) return;
+    paymentInFlight = true;
+    const btn = document.getElementById('send-btn');
+    btn.classList.add('processing'); btn.textContent = 'Processing…'; btn.disabled = true;
+    senderSel.disabled = true; recipientSel.disabled = true;
+
+    processTrack.classList.add('show');
+    resetProcessVisualOnly();
+
+    let i = 0;
+    const stepEls = document.querySelectorAll('.process-step');
+    const fill = document.getElementById('process-bar-fill');
+    const status = document.getElementById('process-status');
+
+    function nextStep(){
+      if (i > 0) stepEls[i-1].classList.remove('active'), stepEls[i-1].classList.add('done');
+      if (i < STEPS.length){
+        stepEls[i].classList.add('active');
+        fill.style.width = `${((i+0.5)/STEPS.length)*100}%`;
+        i++;
+        setTimeout(nextStep, 620);
+      } else {
+        fill.style.width = '100%';
+        status.textContent = 'Settled';
+        status.classList.add('done');
+        paymentInFlight = false;
+        btn.classList.remove('processing'); btn.textContent = 'Payment settled ✓';
+        senderSel.disabled = false; recipientSel.disabled = false;
+      }
+    }
+    setTimeout(nextStep, 300);
+  });
+
+  function resetProcessVisualOnly(){
+    document.getElementById('process-bar-fill').style.width = '0%';
+    document.querySelectorAll('.process-step').forEach(el => el.classList.remove('active','done'));
+    document.getElementById('process-status').textContent = 'Processing…';
+    document.getElementById('process-status').classList.remove('done');
+  }
+
+  syncAll();
+})();
+</script>
 </body>
 </html>
