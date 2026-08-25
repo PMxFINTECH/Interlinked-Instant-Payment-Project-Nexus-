@@ -1177,28 +1177,11 @@ body.modal-open {
 }
 
 .fx-live-badge {
-  display: flex;
-  align-items: center;
-  gap: 5px;
   font-family: var(--font-mono);
   font-size: 10px;
-  color: var(--success);
+  color: var(--text-muted);
   letter-spacing: 0.06em;
   text-transform: uppercase;
-}
-
-.fx-live-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--success);
-  box-shadow: 0 0 6px var(--success);
-  animation: fxLivePulse 1.8s ease-in-out infinite;
-}
-
-@keyframes fxLivePulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
 }
 
 .fx-base-row {
@@ -1232,38 +1215,6 @@ body.modal-open {
 .fx-base-chip.is-set {
   background: rgba(15, 113, 240, 0.16);
   border-color: rgba(15, 113, 240, 0.4);
-}
-
-.fx-refresh {
-  background: none;
-  border: 1px solid var(--panel-border);
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  padding: 4px 8px;
-  border-radius: 6px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  transition: border-color 0.15s ease, color 0.15s ease;
-  margin-left: auto;
-  margin-bottom: 12px;
-}
-
-.fx-refresh:hover {
-  border-color: var(--accent);
-  color: var(--text);
-}
-
-.fx-refresh svg {
-  width: 10px;
-  height: 10px;
-  transition: transform 0.4s ease;
-}
-
-.fx-refresh.spin svg {
-  transform: rotate(360deg);
 }
 
 .fx-row {
