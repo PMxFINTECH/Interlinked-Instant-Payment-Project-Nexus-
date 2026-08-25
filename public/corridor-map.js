@@ -71,6 +71,7 @@
   waitForCountries(function () {
     initMap();
     initTicker();
+    watchForPaymentCompletion();
   });
 
   // ============================================================
@@ -446,5 +447,44 @@
         '</span>';
       container.appendChild(row);
     });
+  }
+
+  // ---------- Reset after a completed payment ----------
+  // app.js's resetForm() clears the sender/recipient dropdowns via
+  // dropdown.reset(), which intentionally doesn't dispatch a 'change'
+  // event (it's also used mid-flow, e.g. while banks are loading, where a
+  // real change event would be wrong). So instead of relying on that
+  // event, this watches the success panel app.js already creates and
+  // inserts after the form (.success-panel, toggled via its `hidden`
+  // attribute in showSuccessPanel()/hideSuccessPanel()). The moment it
+  // becomes visible, the payment has completed, so:
+  //   - the map/ticker are cleared back to their default state, and
+  //   - the five-step trace bar is hidden again (app.js shows it via
+  //     `trace.hidden = false` in resetTrace() at the start of a send,
+  //     but never hides it again once the steps finish).
+  // Nothing in app.js is read or modified beyond toggling #trace's
+  // existing `hidden` attribute, the same mechanism app.js itself uses.
+  function watchForPaymentCompletion() {
+    var successPanel = document.querySelector('.success-panel');
+    if (!successPanel) return;
+
+    var observer = new MutationObserver(function (mutations) {
+      mutations.forEach(function (m) {
+        if (m.attributeName === 'hidden' && !successPanel.hidden) {
+          onPaymentCompleted();
+        }
+      });
+    });
+    observer.observe(successPanel, { attributes: true });
+  }
+
+  function onPaymentCompleted() {
+    mapSender = '';
+    mapRecipient = '';
+    syncMapVisuals();
+    updateTicker();
+
+    var traceEl = document.getElementById('trace');
+    if (traceEl) traceEl.hidden = true;
   }
 })();
