@@ -395,7 +395,8 @@
       .filter(Boolean);
 
     Promise.all(targets.map(function (country) {
-      return fetch('/api/fx-quote/' + baseCode + '/' + country.currency)
+      var url = '/api/fx-quote/' + baseCode + '/' + country.currency + '?_t=' + Date.now();
+      return fetch(url, { cache: 'no-store' })
         .then(function (res) { return res.ok ? res.json() : null; })
         .then(function (data) {
           return data && typeof data.rate === 'number'
