@@ -366,20 +366,19 @@
   }
 
   // ============================================================
-  // FX ticker — live data from /api/fx-quote/:from/:to
+  // FX ticker — data from /api/fx-quote/:from/:to
+  //
+  // No manual refresh control: the underlying free-tier FX API
+  // (open.er-api.com) only updates once every 24 hours, so a refresh
+  // button would re-fetch but almost always show identical numbers
+  // within the same day — indistinguishable from doing nothing. The
+  // "Daily rate" label next to the ticker title is accurate instead.
   // ============================================================
 
   var tickerToken = 0;
 
   function initTicker() {
     updateTicker();
-    var refreshBtn = document.getElementById('fxRefreshBtn');
-    refreshBtn.addEventListener('click', function () {
-      updateTicker();
-      refreshBtn.classList.remove('spin');
-      void refreshBtn.offsetWidth;
-      refreshBtn.classList.add('spin');
-    });
   }
 
   function updateTicker() {
