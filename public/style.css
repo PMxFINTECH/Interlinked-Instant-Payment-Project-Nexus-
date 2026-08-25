@@ -345,14 +345,6 @@ footer.page-footer {
   margin: 0;
   list-style: none;
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
-  opacity: 0;
-  transform: translateY(-4px);
-  transition: opacity 0.15s ease, transform 0.15s ease;
-}
-
-.custom-select-list.is-open {
-  opacity: 1;
-  transform: translateY(0);
 }
 
 .custom-select-list li {
@@ -414,8 +406,15 @@ footer.page-footer {
 .currency-prefix {
   font-family: var(--font-mono);
   font-size: 14px;
-  color: var(--text-muted);
+  color: var(--accent);
   flex-shrink: 0;
+}
+
+/* Feature: Amount / Currency Conversion — THB (฿) and VND (₫) are harder to
+   read in the teal accent color, so this override switches those two to
+   plain white. Applied via JS (applyCurrencyColor) based on currency code. */
+.currency-prefix.currency-alt {
+  color: #ffffff;
 }
 
 /* FX Rate line */
@@ -436,6 +435,10 @@ footer.page-footer {
   letter-spacing: -0.01em;
   color: var(--text) !important;
   cursor: default;
+}
+
+.converted-amount.currency-alt {
+  color: var(--text) !important;
 }
 
 /* Recipient name/bank preview */
@@ -566,12 +569,6 @@ footer.page-footer {
   justify-content: center;
   z-index: 100;
   padding: 20px;
-  opacity: 0;
-  transition: opacity 0.18s ease;
-}
-
-.modal-overlay.is-open {
-  opacity: 1;
 }
 
 .modal-overlay[hidden] {
@@ -596,14 +593,6 @@ footer.page-footer {
   box-shadow:
     0 30px 80px -20px rgba(0, 0, 0, 0.65);
   overflow: hidden;
-  transform: scale(0.96);
-  opacity: 0;
-  transition: transform 0.18s ease, opacity 0.18s ease;
-}
-
-.modal-overlay.is-open .modal-box {
-  transform: scale(1);
-  opacity: 1;
 }
 
 .modal-title {
@@ -1143,4 +1132,471 @@ body.modal-open {
   opacity: 0.045;
   mix-blend-mode: overlay;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ============================================================
+   Feature: FX ticker + corridor map (side card)
+   Purely additive — new selectors only, nothing above is touched.
+   Reuses the existing tokens (--panel, --panel-border, --text,
+   --text-muted, --accent, --amber, --font-mono, --font-body,
+   --font-display) instead of introducing new ones, and matches the
+   .column-label / .field typography already used in the hub-panel.
+   ============================================================ */
+
+.side-card {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  padding: 20px 20px 24px;
+  margin-top: 8px;
+}
+
+/* ---------- FX ticker ---------- */
+
+.fx-ticker {
+  background: #0e1826;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  padding: 16px 16px 6px;
+  margin-bottom: 16px;
+}
+
+.fx-ticker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.fx-ticker-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.fx-live-badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--success);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.fx-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 6px var(--success);
+  animation: fxLivePulse 1.8s ease-in-out infinite;
+}
+
+@keyframes fxLivePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.fx-base-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.fx-base-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(15, 113, 240, 0.1);
+  border: 1px solid rgba(15, 113, 240, 0.25);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  padding: 5px 10px;
+  border-radius: 20px;
+  margin-bottom: 12px;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.fx-base-chip b {
+  color: var(--text);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.fx-base-chip.is-set {
+  background: rgba(15, 113, 240, 0.16);
+  border-color: rgba(15, 113, 240, 0.4);
+}
+
+.fx-refresh {
+  background: none;
+  border: 1px solid var(--panel-border);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: border-color 0.15s ease, color 0.15s ease;
+  margin-left: auto;
+  margin-bottom: 12px;
+}
+
+.fx-refresh:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.fx-refresh svg {
+  width: 10px;
+  height: 10px;
+  transition: transform 0.4s ease;
+}
+
+.fx-refresh.spin svg {
+  transform: rotate(360deg);
+}
+
+.fx-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.045);
+  font-size: 12.5px;
+}
+
+.fx-row:first-of-type {
+  border-top: none;
+}
+
+.fx-row-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fx-rank {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-muted);
+  width: 12px;
+}
+
+.fx-row.best .fx-rank {
+  color: var(--success);
+}
+
+.fx-row-flag {
+  width: 21px;
+  height: auto;
+  border-radius: 2px;
+}
+
+.fx-row-ccy {
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 12.5px;
+  letter-spacing: 0.02em;
+  color: var(--text);
+}
+
+.fx-row-right {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.fx-row-value {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 13.5px;
+  color: var(--text);
+}
+
+.fx-row-delta {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+}
+
+.fx-row-delta.up {
+  color: var(--success);
+}
+
+.fx-row-delta.down {
+  color: var(--danger);
+}
+
+.fx-row.is-recipient {
+  background: linear-gradient(90deg, rgba(242, 169, 59, 0.09), transparent);
+  border-radius: 6px;
+  padding-left: 6px;
+  padding-right: 6px;
+  margin: 0 -6px;
+}
+
+.fx-ticker-empty {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--text-muted);
+  padding: 10px 0;
+}
+
+/* ---------- Corridor map ---------- */
+
+.map-stage {
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 16px;
+  background: radial-gradient(ellipse 75% 60% at 50% 38%, #0f1c2e 0%, #0a1420 65%, #08111c 100%);
+  border: 1px solid rgba(255, 255, 255, 0.055);
+}
+
+.map-stage::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.55);
+}
+
+svg.sea-map {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.country-line {
+  fill: none;
+  stroke: #3a5578;
+  stroke-width: 1;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  transition: stroke 0.35s ease, stroke-width 0.35s ease;
+}
+
+.country-glow {
+  fill: none;
+  stroke: #3a5578;
+  stroke-width: 3.2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  opacity: 0.16;
+  filter: blur(2.6px);
+  transition: stroke 0.35s ease, opacity 0.35s ease;
+}
+
+.country-hit {
+  fill: rgba(0, 0, 0, 0);
+  stroke: transparent;
+  stroke-width: 14;
+  cursor: pointer;
+}
+
+.country-piece:hover .country-line {
+  stroke: #7f9bc2;
+}
+
+.country-piece:hover .country-glow {
+  opacity: 0.28;
+}
+
+.country-piece.is-sender .country-line {
+  stroke: var(--accent);
+  stroke-width: 1.4;
+}
+
+.country-piece.is-sender .country-glow {
+  stroke: var(--accent);
+  opacity: 0.85;
+  stroke-width: 5;
+}
+
+.country-piece.is-recipient .country-line {
+  stroke: var(--amber);
+  stroke-width: 1.4;
+}
+
+.country-piece.is-recipient .country-glow {
+  stroke: var(--amber);
+  opacity: 0.85;
+  stroke-width: 5;
+}
+
+.country-label {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  fill: var(--text-muted);
+  text-anchor: middle;
+  letter-spacing: 0.06em;
+  pointer-events: none;
+  transition: fill 0.3s ease, opacity 0.3s ease;
+}
+
+.country-piece.is-sender .country-label {
+  fill: var(--accent);
+  opacity: 0;
+}
+
+.country-piece.is-recipient .country-label {
+  fill: var(--amber);
+  opacity: 0;
+}
+
+.sg-dot {
+  fill: #3a5578;
+  transition: fill 0.35s ease;
+}
+
+.sg-dot-glow {
+  fill: #3a5578;
+  opacity: 0.3;
+  filter: blur(3px);
+  transition: fill 0.35s ease, opacity 0.35s ease;
+}
+
+.sg-marker:hover .sg-dot {
+  fill: #7f9bc2;
+}
+
+.sg-marker.is-sender .sg-dot {
+  fill: var(--accent);
+}
+
+.sg-marker.is-sender .sg-dot-glow {
+  fill: var(--accent);
+  opacity: 0.9;
+}
+
+.sg-marker.is-recipient .sg-dot {
+  fill: var(--amber);
+}
+
+.sg-marker.is-recipient .sg-dot-glow {
+  fill: var(--amber);
+  opacity: 0.9;
+}
+
+.sg-hit {
+  fill: rgba(0, 0, 0, 0);
+  cursor: pointer;
+}
+
+.flag-badge {
+  opacity: 0;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  transform: translateY(3px);
+  pointer-events: none;
+}
+
+.flag-badge.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.flag-badge-bg {
+  fill: #0e1826;
+  stroke: rgba(255, 255, 255, 0.14);
+  stroke-width: 1;
+}
+
+.flag-badge-name {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  fill: var(--text);
+  letter-spacing: 0.03em;
+}
+
+.connector-line {
+  fill: none;
+  stroke: url(#nexusConnectorGrad);
+  stroke-width: 1.6;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  filter: drop-shadow(0 0 3px rgba(15, 113, 240, 0.5));
+}
+
+.connector-line.show {
+  opacity: 0.9;
+}
+
+.connector-pulse {
+  fill: none;
+  stroke: url(#nexusConnectorGrad);
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  opacity: 0;
+}
+
+.connector-pulse.show {
+  opacity: 0.95;
+}
+
+/* ---------- Route summary card ---------- */
+
+.route-card {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  background: #0e1826;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.route-card.show {
+  display: flex;
+}
+
+.route-side {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.route-side img {
+  width: 24px;
+  height: auto;
+  border-radius: 3px;
+}
+
+.route-side .rs-country {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.route-side .rs-rail {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
+.route-chevron {
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+}
+
+.route-chevron svg {
+  width: 14px;
+  height: 14px;
+}
+
+@media (max-width: 720px) {
+  .side-card {
+    margin-top: 0;
+  }
 }
