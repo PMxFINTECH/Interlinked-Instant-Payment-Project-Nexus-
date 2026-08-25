@@ -330,6 +330,19 @@ footer.page-footer {
   flex-shrink: 0;
 }
 
+/* Feature: Dropdown open/close transition — the list used to be shown/hidden
+   with a hard display:none cut (or, if app.js mounts/unmounts the <ul> from
+   the DOM entirely, there was nothing for CSS to animate at all). This now
+   drives visibility off the `hidden` attribute — same one app.js may already
+   be toggling on .custom-select-trigger's aria-expanded sibling — using
+   @starting-style so the browser tweens opacity/transform across the
+   display:none <-> display:block flip instead of snapping.
+   NOTE: if app.js currently removes/re-appends the <ul> from the DOM rather
+   than toggling a `hidden` attribute on it, this needs one small JS change:
+   keep the <ul> in the DOM and toggle `listEl.hidden = false/true` instead
+   of append/remove. Send the relevant open/close function if so and I'll
+   adjust in place. */
+
 .custom-select-list {
   position: absolute;
   z-index: 20;
@@ -345,6 +358,30 @@ footer.page-footer {
   margin: 0;
   list-style: none;
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+  transform-origin: top center;
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s cubic-bezier(0.16, 1, 0.3, 1),
+    display 0.16s ease allow-discrete;
+}
+
+.custom-select-list[hidden] {
+  display: none;
+  opacity: 0;
+  transform: translateY(-4px) scale(0.98);
+  transition:
+    opacity 0.12s ease,
+    transform 0.12s ease,
+    display 0.12s ease allow-discrete;
+}
+
+@starting-style {
+  .custom-select-list:not([hidden]) {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
 }
 
 .custom-select-list li {
@@ -557,7 +594,14 @@ footer.page-footer {
 
 /* Feature: Send confirmation — modal overlay shown after "Send payment" is
    clicked, before the request actually fires. Backdrop click / Escape both
-   act as Cancel (handled in app.js). */
+   act as Cancel (handled in app.js).
+
+   Transition note: visibility is still driven purely by the `hidden`
+   attribute exactly as app.js already toggles it — no JS change needed.
+   @starting-style tells the browser what state to tween FROM the instant
+   `hidden` is removed, and `transition-behavior: allow-discrete` (paired
+   with a `display` transition) lets opacity/transform animate across the
+   display:none <-> flex flip instead of hard-cutting. */
 
 .modal-overlay {
   position: fixed;
@@ -569,10 +613,20 @@ footer.page-footer {
   justify-content: center;
   z-index: 100;
   padding: 20px;
+  opacity: 1;
+  transition: opacity 0.22s ease, display 0.22s ease allow-discrete;
 }
 
 .modal-overlay[hidden] {
   display: none;
+  opacity: 0;
+  transition: opacity 0.22s ease, display 0.22s ease allow-discrete;
+}
+
+@starting-style {
+  .modal-overlay:not([hidden]) {
+    opacity: 0;
+  }
 }
 
 .modal-box {
@@ -593,6 +647,18 @@ footer.page-footer {
   box-shadow:
     0 30px 80px -20px rgba(0, 0, 0, 0.65);
   overflow: hidden;
+  transform: scale(1);
+  transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.modal-overlay[hidden] .modal-box {
+  transform: scale(0.94);
+}
+
+@starting-style {
+  .modal-overlay:not([hidden]) .modal-box {
+    transform: scale(0.94);
+  }
 }
 
 .modal-title {
@@ -1074,7 +1140,10 @@ body.modal-open {
   .success-panel,
   .recipient-preview,
   .progress-row,
-  .confirm-amount-box {
+  .confirm-amount-box,
+  .modal-overlay,
+  .modal-box,
+  .custom-select-list {
     transition: none;
     animation: none;
     opacity: 1;
