@@ -24,6 +24,17 @@ const CURRENCY_DECIMALS = {
   VND: 0,
 };
 
+// Feature: Receipt — each country's real-world domestic instant payment
+// rail name, shown on the generated PDF for context (e.g. "DuitNow").
+const RAIL_NAMES = {
+  SG: 'FAST',
+  MY: 'DuitNow',
+  TH: 'PromptPay',
+  PH: 'InstaPay',
+  VN: 'NAPAS 247',
+  ID: 'BI-FAST',
+};
+
 const senderCountrySelect = document.getElementById('senderCountry');
 const senderBankSelect = document.getElementById('senderBank');
 const senderCurrencyPrefix = document.getElementById('senderCurrencyPrefix');
@@ -228,21 +239,45 @@ function buildSuccessPanel() {
   const body = document.createElement('div');
   body.className = 'success-panel-body';
 
+  // Feature: Receipt — a quiet follow-up action below the recipient/country
+  // rows. Disabled until a completed payment actually has data to print.
+  const actions = document.createElement('div');
+  actions.className = 'success-panel-actions';
+
+  const downloadBtn = document.createElement('button');
+  downloadBtn.type = 'button';
+  downloadBtn.className = 'success-panel-download-btn';
+  downloadBtn.disabled = true;
+  downloadBtn.innerHTML =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg><span>Download receipt</span>';
+  downloadBtn.addEventListener('click', () => {
+    if (lastReceiptData) downloadReceipt(lastReceiptData);
+  });
+
+  actions.appendChild(downloadBtn);
+
   panel.appendChild(header);
   panel.appendChild(amountEyebrow);
   panel.appendChild(amount);
   panel.appendChild(body);
+  panel.appendChild(actions);
 
   // form === .hub-panel (the sender/recipient info box), so this lands
   // immediately below it — below the whole form now, including the rail.
   form.insertAdjacentElement('afterend', panel);
 
-  return { panel, amount, body };
+  return { panel, amount, body, downloadBtn };
 }
 
 const successPanelEls = buildSuccessPanel();
 
-function showSuccessPanel({ recipientName, countryName, amountText }) {
+// Feature: Receipt — the full payload behind the currently-shown success
+// panel, kept around so the download button (which lives in the panel's
+// persistent DOM, not the confirm-time closure) always has fresh data.
+let lastReceiptData = null;
+
+function showSuccessPanel(data) {
+  const { recipientName, countryName, amountText } = data;
   successPanelEls.amount.textContent = amountText;
 
   successPanelEls.body.innerHTML = '';
@@ -261,11 +296,299 @@ function showSuccessPanel({ recipientName, countryName, amountText }) {
     p.appendChild(valueSpan);
     successPanelEls.body.appendChild(p);
   });
+
+  lastReceiptData = data;
+  successPanelEls.downloadBtn.disabled = false;
+
   successPanelEls.panel.hidden = false;
 }
 
 function hideSuccessPanel() {
   successPanelEls.panel.hidden = true;
+}
+
+// ---------- Feature: Receipt — downloadable PDF ----------
+// Draws the receipt directly with jsPDF (rather than rasterizing HTML) so
+// the text stays sharp and selectable/searchable in the resulting PDF.
+// Layout mirrors the approved prototype: perforation-style rule under the
+// header, a faint diagonal watermark behind the cards, sender/recipient
+// cards side by side, an amount block with the converted total called out,
+// and a footer disclaimer + reference stamp.
+
+function maskAccountId(accountId) {
+  if (!accountId) return '—';
+  const digits = accountId.replace(/[^0-9]/g, '');
+  if (digits.length <= 4) return accountId;
+  const prefix = accountId.split('-')[0];
+  return `${prefix}-••${digits.slice(-4)}`;
+}
+
+function downloadReceipt(data) {
+  if (!window.jspdf || !window.jspdf.jsPDF) {
+    console.error('jsPDF failed to load — cannot generate receipt.');
+    return;
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+
+  const pageWidth = 210;
+  const margin = 18;
+  const contentWidth = pageWidth - margin * 2;
+
+  const ink = [26, 26, 26];
+  const inkSoft = [85, 82, 76];
+  const inkFaint = [148, 143, 131];
+  const lineColor = [216, 212, 200];
+  const amber = [190, 128, 32];
+  const amberBg = [253, 243, 226];
+  const green = [40, 105, 66];
+
+  // Watermark first, so it sits visually behind the white content cards
+  // drawn afterward (same effect as z-index in the HTML prototype).
+  try {
+    doc.setGState(new doc.GState({ opacity: 0.05 }));
+  } catch (err) {
+    /* older jsPDF builds without the GState plugin — skip transparency */
+  }
+  doc.setTextColor(...green);
+  doc.setFont('courier', 'bold');
+  doc.setFontSize(70);
+  doc.text('SETTLED', pageWidth / 2, 160, { align: 'center', angle: 18 });
+  try {
+    doc.setGState(new doc.GState({ opacity: 1 }));
+  } catch (err) {
+    /* no-op */
+  }
+
+  let y = 20;
+
+  // ---- Header ----
+  doc.setFillColor(...ink);
+  doc.roundedRect(margin, y, 8, 8, 1.5, 1.5, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('courier', 'bold');
+  doc.setFontSize(10);
+  doc.text('N', margin + 4, y + 5.6, { align: 'center' });
+
+  doc.setTextColor(...ink);
+  doc.setFont('courier', 'bold');
+  doc.setFontSize(10.5);
+  doc.text('NEXUS IPS', margin + 11, y + 3.6);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(...inkSoft);
+  doc.text('Interlinked Instant Payment Simulator', margin + 11, y + 7.6);
+
+  doc.setTextColor(...ink);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(18);
+  doc.text('Payment Receipt', margin + contentWidth, y + 4, { align: 'right' });
+  doc.setFont('courier', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(...inkSoft);
+  doc.text(data.msgId || '—', margin + contentWidth, y + 9, { align: 'right' });
+
+  y += 16;
+  doc.setDrawColor(...ink);
+  doc.setLineWidth(0.6);
+  doc.line(margin, y, margin + contentWidth, y);
+  y += 8;
+
+  // ---- Status row ----
+  const statusRowH = 16;
+  doc.setDrawColor(...lineColor);
+  doc.setLineWidth(0.3);
+  doc.setFillColor(255, 255, 255);
+  doc.roundedRect(margin, y, contentWidth, statusRowH, 1.5, 1.5, 'FD');
+
+  doc.setFillColor(...green);
+  doc.circle(margin + 6, y + statusRowH / 2, 1.1, 'F');
+  doc.setTextColor(...green);
+  doc.setFont('courier', 'bold');
+  doc.setFontSize(9);
+  doc.text('COMPLETED', margin + 9, y + statusRowH / 2 + 1.2);
+
+  const createdDate = new Date(data.createdAt);
+  const dateText = Number.isNaN(createdDate.getTime())
+    ? '—'
+    : createdDate.toLocaleString('en-SG', {
+        day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+      });
+  const corridor = `${data.senderCountryCode || '—'} → ${data.recipientCountryCode || '—'}`;
+  const processingText = Number.isFinite(data.processingSeconds)
+    ? `${data.processingSeconds.toFixed(1)}s`
+    : '—';
+
+  const metaCols = [
+    { label: 'DATE ISSUED', value: dateText },
+    { label: 'PROCESSING TIME', value: processingText },
+    { label: 'CORRIDOR', value: corridor },
+  ];
+  const metaColWidth = 38;
+  let metaX = margin + contentWidth - metaColWidth * metaCols.length - 4;
+  metaCols.forEach((col) => {
+    doc.setFont('courier', 'normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(...inkFaint);
+    doc.text(col.label, metaX, y + 5.5);
+    doc.setFont('courier', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(...ink);
+    doc.text(col.value, metaX, y + 10.5);
+    metaX += metaColWidth;
+  });
+
+  y += statusRowH + 10;
+
+  // ---- Sender / Recipient cards ----
+  const partyGap = 6;
+  const partyWidth = (contentWidth - partyGap) / 2;
+  const partyHeight = 34;
+
+  function drawParty(x, title, name, rows) {
+    doc.setDrawColor(...lineColor);
+    doc.setLineWidth(0.3);
+    doc.setFillColor(255, 255, 255);
+    doc.roundedRect(x, y, partyWidth, partyHeight, 1.5, 1.5, 'FD');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...amber);
+    doc.text(title.toUpperCase(), x + 5, y + 7);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11.5);
+    doc.setTextColor(...ink);
+    doc.text(name || '—', x + 5, y + 14);
+
+    let ry = y + 19;
+    rows.forEach(([label, value], idx) => {
+      if (idx > 0) {
+        doc.setDrawColor(...lineColor);
+        doc.setLineDashPattern([0.6, 0.6], 0);
+        doc.line(x + 5, ry - 3.4, x + partyWidth - 5, ry - 3.4);
+        doc.setLineDashPattern([], 0);
+      }
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(...inkSoft);
+      doc.text(label, x + 5, ry);
+      doc.setFont('courier', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(...ink);
+      doc.text(String(value || '—'), x + partyWidth - 5, ry, { align: 'right' });
+      ry += 5.2;
+    });
+  }
+
+  drawParty(margin, 'Sender', data.senderName, [
+    ['Country', data.senderCountryName],
+    ['Bank', data.senderBankName],
+    ['Sending rail', RAIL_NAMES[data.senderCountryCode] || '—'],
+  ]);
+
+  drawParty(margin + partyWidth + partyGap, 'Recipient', data.recipientName, [
+    ['Country', data.countryName],
+    ['Bank', data.recipientBankName],
+    ['Account', maskAccountId(data.recipientAccountId)],
+  ]);
+
+  y += partyHeight + 8;
+
+  // ---- Amount block ----
+  const amtRowH = 10;
+  const totalRowH = 16;
+  const amtBlockH = amtRowH * 2 + totalRowH;
+
+  doc.setDrawColor(...lineColor);
+  doc.setLineWidth(0.3);
+  doc.setFillColor(255, 255, 255);
+  doc.roundedRect(margin, y, contentWidth, amtBlockH, 1.5, 1.5, 'FD');
+
+  function amtRow(label, value, ry, rh, big) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(...inkSoft);
+    doc.text(label, margin + 6, ry + rh / 2 + 1);
+    doc.setFont('courier', big ? 'bold' : 'normal');
+    doc.setFontSize(big ? 15 : 9.5);
+    doc.setTextColor(...ink);
+    doc.text(value, margin + contentWidth - 6, ry + rh / 2 + (big ? 1.6 : 1), { align: 'right' });
+  }
+
+  const rateText = data.exchangeRate
+    ? `1 ${data.fromCurrency} = ${Number(data.exchangeRate).toFixed(4)} ${data.toCurrency}`
+    : '—';
+
+  amtRow('Amount sent', data.senderAmountText || '—', y, amtRowH);
+  doc.setDrawColor(...lineColor);
+  doc.line(margin, y + amtRowH, margin + contentWidth, y + amtRowH);
+
+  amtRow('Exchange rate', rateText, y + amtRowH, amtRowH);
+  doc.line(margin, y + amtRowH * 2, margin + contentWidth, y + amtRowH * 2);
+
+  doc.setFillColor(...amberBg);
+  doc.rect(margin + 0.3, y + amtRowH * 2 + 0.3, contentWidth - 0.6, totalRowH - 0.6, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10.5);
+  doc.setTextColor(...ink);
+  doc.text('Amount received', margin + 6, y + amtRowH * 2 + totalRowH / 2 + 1.5);
+  doc.setFont('courier', 'bold');
+  doc.setFontSize(17);
+  doc.text(data.amountText || '—', margin + contentWidth - 6, y + amtRowH * 2 + totalRowH / 2 + 2, {
+    align: 'right',
+  });
+
+  y += amtBlockH + 12;
+
+  // ---- Footer ----
+  doc.setDrawColor(...lineColor);
+  doc.setLineWidth(0.3);
+  doc.line(margin, y, margin + contentWidth, y);
+  y += 6;
+
+  const disclaimer =
+    'Bank and recipient names are fictionally generated for illustrative purposes only in a demo. ' +
+    'Not affiliated with or endorsed by any institution listed. This receipt is a system-generated ' +
+    'record of a simulated transaction and holds no legal or financial value.';
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(...inkSoft);
+  const disclaimerLines = doc.splitTextToSize(disclaimer, contentWidth - 62);
+  doc.text(disclaimerLines, margin, y + 3);
+
+  doc.setFont('courier', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(...inkFaint);
+  const generatedText = new Date().toLocaleString('en-SG', {
+    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+  doc.text(
+    [`Generated ${generatedText}`, `Nexus IPS · Reference ${data.msgId || '—'}`],
+    margin + contentWidth,
+    y + 3,
+    { align: 'right' }
+  );
+
+  y += Math.max(disclaimerLines.length * 3.4, 8) + 8;
+
+  // ---- Barcode strip (decorative, deterministic per reference number) ----
+  const seed = (data.msgId || 'nexus').split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+  const barWidths = [0.5, 0.9, 1.5, 0.6, 2, 0.8, 1.1];
+  const barH = 8;
+  let bx = margin;
+  let i = 0;
+  doc.setFillColor(...ink);
+  while (bx < margin + contentWidth) {
+    const w = barWidths[(seed + i) % barWidths.length];
+    doc.rect(bx, y, w, barH, 'F');
+    bx += w + 1.3;
+    i += 1;
+  }
+
+  const filenameSafe = (data.msgId || `nexus-receipt-${Date.now()}`).replace(/[^a-zA-Z0-9-]/g, '');
+  doc.save(`${filenameSafe}.pdf`);
 }
 
 // Set right before the real payment request fires, read back once the
@@ -1047,6 +1370,18 @@ form.addEventListener('submit', async (e) => {
     recipientName: recipientNameForConfirm,
     countryName: countryNameForConfirm,
     amountText: recipientAmountText,
+    senderName: document.getElementById('senderName').value,
+    senderCountryCode: senderCountrySelect.value,
+    senderCountryName: senderCountry ? senderCountry.name : senderCountrySelect.value,
+    senderBankName: senderBankSelect.value,
+    senderCurrency: senderCountry ? senderCountry.currency : '',
+    senderAmountText,
+    recipientCountryCode: recipientCountrySelect.value,
+    // Feature: Receipt — "processing time" on the receipt is measured from
+    // here (when the sender's request actually starts going out), not from
+    // when Send was first clicked, so it doesn't include time spent on the
+    // confirm modal.
+    requestStartedAt: performance.now(),
   };
 
   submitBtn.disabled = true;
@@ -1135,7 +1470,28 @@ async function runCompletedTrace(data) {
   lightStation(4);
 
   if (pendingPaymentSummary) {
-    showSuccessPanel(pendingPaymentSummary);
+    const msg = data.message || {};
+    const grpHdr = msg.GrpHdr || {};
+    const txInf = msg.CdtTrfTxInf || {};
+    const recipient = data.recipient || {};
+    const fx = data.fx || {};
+
+    const elapsedSeconds =
+      (performance.now() - (pendingPaymentSummary.requestStartedAt || performance.now())) / 1000;
+
+    const receiptData = {
+      ...pendingPaymentSummary,
+      recipientBankName: recipient.bankName || txInf.CdtrAgt?.FinInstnId?.Nm || '',
+      recipientAccountId: recipient.accountId || txInf.CdtrAcct?.Id || '',
+      msgId: grpHdr.MsgId || '',
+      createdAt: grpHdr.CreDtTm || new Date().toISOString(),
+      exchangeRate: fx.rate ?? txInf.XchgRateInf?.XchgRate ?? null,
+      fromCurrency: fx.fromCurrency || pendingPaymentSummary.senderCurrency,
+      toCurrency: fx.toCurrency || '',
+      processingSeconds: elapsedSeconds,
+    };
+
+    showSuccessPanel(receiptData);
     pendingPaymentSummary = null;
   }
 
