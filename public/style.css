@@ -19,7 +19,7 @@
   --shadow-md-hover: 0 26px 52px -16px rgba(0, 0, 0, 0.6), 0 4px 10px rgba(0, 0, 0, 0.3);
   --shadow-lg: 0 30px 80px -20px rgba(0, 0, 0, 0.65), 0 6px 16px rgba(0, 0, 0, 0.35);
 
-  --font-display: 'Bricolage Grotesque', sans-serif;
+  --font-display: 'Inter', sans-serif;
   --font-body: 'Inter', sans-serif;
   --font-mono: 'IBM Plex Mono', monospace;
 }
@@ -103,7 +103,7 @@ footer.page-footer {
 }
 
 .subcopy {
-  font-family: 'Sora', sans-serif;
+  font-family: var(--font-body);
   font-weight: 500;
   color: var(--text-muted);
   max-width: 540px;
