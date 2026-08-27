@@ -410,23 +410,19 @@ function downloadReceipt(data) {
   doc.text('COMPLETED', margin + 9, y + statusRowH / 2 + 1.2);
 
   const createdDate = new Date(data.createdAt);
-  const dateText = Number.isNaN(createdDate.getTime())
-    ? '—'
-    : createdDate.toLocaleString('en-SG', {
-        day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
-      });
-  const corridor = `${data.senderCountryCode || '—'} → ${data.recipientCountryCode || '—'}`;
+  const dateText = formatReceiptDateTime(createdDate);
+  const corridor = `${data.senderCountryCode || '—'} -> ${data.recipientCountryCode || '—'}`;
   const processingText = Number.isFinite(data.processingSeconds)
     ? `${data.processingSeconds.toFixed(1)}s`
     : '—';
 
   const metaCols = [
-    { label: 'DATE ISSUED', value: dateText },
-    { label: 'PROCESSING TIME', value: processingText },
-    { label: 'CORRIDOR', value: corridor },
+    { label: 'DATE ISSUED', value: dateText, width: 44 },
+    { label: 'PROCESSING TIME', value: processingText, width: 30 },
+    { label: 'CORRIDOR', value: corridor, width: 22 },
   ];
-  const metaColWidth = 38;
-  let metaX = margin + contentWidth - metaColWidth * metaCols.length - 4;
+  const metaTotalWidth = metaCols.reduce((sum, col) => sum + col.width, 0);
+  let metaX = margin + contentWidth - metaTotalWidth - 4;
   metaCols.forEach((col) => {
     doc.setFont('courier', 'normal');
     doc.setFontSize(6.5);
@@ -436,7 +432,7 @@ function downloadReceipt(data) {
     doc.setFontSize(8.5);
     doc.setTextColor(...ink);
     doc.text(col.value, metaX, y + 10.5);
-    metaX += metaColWidth;
+    metaX += col.width;
   });
 
   y += statusRowH + 10;
@@ -520,8 +516,10 @@ function downloadReceipt(data) {
   const rateText = data.exchangeRate
     ? `1 ${data.fromCurrency} = ${Number(data.exchangeRate).toFixed(4)} ${data.toCurrency}`
     : '—';
+  const sentAmountText = formatCurrencyPlain(data.senderAmountRaw, data.fromCurrency);
+  const receivedAmountText = formatCurrencyPlain(data.recipientAmountRaw, data.toCurrency);
 
-  amtRow('Amount sent', data.senderAmountText || '—', y, amtRowH);
+  amtRow('Amount sent', sentAmountText, y, amtRowH);
   doc.setDrawColor(...lineColor);
   doc.line(margin, y + amtRowH, margin + contentWidth, y + amtRowH);
 
@@ -535,8 +533,8 @@ function downloadReceipt(data) {
   doc.setTextColor(...ink);
   doc.text('Amount received', margin + 6, y + amtRowH * 2 + totalRowH / 2 + 1.5);
   doc.setFont('courier', 'bold');
-  doc.setFontSize(17);
-  doc.text(data.amountText || '—', margin + contentWidth - 6, y + amtRowH * 2 + totalRowH / 2 + 2, {
+  doc.setFontSize(15);
+  doc.text(receivedAmountText, margin + contentWidth - 6, y + amtRowH * 2 + totalRowH / 2 + 2, {
     align: 'right',
   });
 
@@ -561,11 +559,9 @@ function downloadReceipt(data) {
   doc.setFont('courier', 'normal');
   doc.setFontSize(7);
   doc.setTextColor(...inkFaint);
-  const generatedText = new Date().toLocaleString('en-SG', {
-    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
-  });
+  const generatedText = formatReceiptDateTime(new Date());
   doc.text(
-    [`Generated ${generatedText}`, `Nexus IPS · Reference ${data.msgId || '—'}`],
+    [`Generated ${generatedText}`, `Nexus IPS - Reference ${data.msgId || '—'}`],
     margin + contentWidth,
     y + 3,
     { align: 'right' }
@@ -1005,6 +1001,38 @@ function formatCurrency(value, currencyCode) {
   return `${symbol} ${formatted}`;
 }
 
+// Feature: Receipt — jsPDF's built-in fonts only cover WinAnsi/Latin
+// characters, so ฿ (THB), ₱ (PHP), and ₫ (VND) either render as missing-
+// glyph boxes or get measured at the wrong width (which is what pushed
+// text off the page edge). The PDF uses ISO currency codes instead of
+// symbols everywhere, never the CURRENCY_SYMBOLS glyphs.
+function formatCurrencyPlain(value, currencyCode) {
+  const decimals = CURRENCY_DECIMALS[currencyCode] ?? 2;
+  const number = Number(value);
+  if (!Number.isFinite(number)) return '—';
+  const formatted = number.toLocaleString('en-US', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+  return `${currencyCode || ''} ${formatted}`.trim();
+}
+
+// Feature: Receipt — a fixed, locale-independent date formatter for the
+// PDF. toLocaleString's AM/PM output varies by browser/OS (extra spaces,
+// different casing) and was overflowing its column; this is always the
+// same length and ASCII-only.
+function formatReceiptDateTime(input) {
+  const d = input instanceof Date ? input : new Date(input);
+  if (Number.isNaN(d.getTime())) return '—';
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = months[d.getMonth()];
+  const year = d.getFullYear();
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${day} ${month} ${year}, ${hh}:${mm}`;
+}
+
 function formatRate(rate) {
   return Number(rate).toLocaleString('en-US', { maximumFractionDigits: 4 });
 }
@@ -1376,6 +1404,7 @@ form.addEventListener('submit', async (e) => {
     senderBankName: senderBankSelect.value,
     senderCurrency: senderCountry ? senderCountry.currency : '',
     senderAmountText,
+    senderAmountRaw: rawAmount,
     recipientCountryCode: recipientCountrySelect.value,
     // Feature: Receipt — "processing time" on the receipt is measured from
     // here (when the sender's request actually starts going out), not from
@@ -1488,6 +1517,7 @@ async function runCompletedTrace(data) {
       exchangeRate: fx.rate ?? txInf.XchgRateInf?.XchgRate ?? null,
       fromCurrency: fx.fromCurrency || pendingPaymentSummary.senderCurrency,
       toCurrency: fx.toCurrency || '',
+      recipientAmountRaw: Number.isFinite(fx.convertedAmount) ? fx.convertedAmount : null,
       processingSeconds: elapsedSeconds,
     };
 
