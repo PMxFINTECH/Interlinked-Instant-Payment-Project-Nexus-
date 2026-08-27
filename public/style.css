@@ -51,8 +51,7 @@ body {
 }
 
 header.page-header,
-main,
-footer.page-footer {
+main {
   position: relative;
   z-index: 1;
   width: 100%;
@@ -1062,13 +1061,8 @@ body.modal-open {
   }
 }
 
-.page-footer {
-  margin-top: 56px;
-  padding-bottom: 40px;
-}
-
-
-.page-footer p {
+.form-disclaimer {
+  margin: 20px 0 0;
   font-size: 12px;
   color: var(--text-muted);
   max-width: 620px;
