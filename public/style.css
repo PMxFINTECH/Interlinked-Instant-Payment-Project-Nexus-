@@ -834,7 +834,6 @@ body.modal-open {
    "Settled" station card feedback. */
 
 .success-panel {
-  grid-column: 1;
   margin-top: 24px;
   background: var(--panel);
   border: 1px solid var(--panel-border);
@@ -1234,6 +1233,8 @@ body.modal-open {
    ============================================================ */
 
 .side-card {
+  grid-column: 2;
+  grid-row: 1;
   background: var(--panel);
   border: 1px solid var(--panel-border);
   border-radius: 12px;
