@@ -1154,10 +1154,19 @@ body.modal-open {
   .confirm-amount-box,
   .modal-overlay,
   .modal-box,
-  .custom-select-list {
+  .custom-select-list,
+  #submitBtn,
+  .modal-btn-primary {
     transition: none;
     animation: none;
     opacity: 1;
+    transform: none;
+  }
+
+  #submitBtn:hover:not(:disabled),
+  #submitBtn:active:not(:disabled),
+  .modal-btn-primary:hover,
+  .modal-btn:active {
     transform: none;
   }
 }
