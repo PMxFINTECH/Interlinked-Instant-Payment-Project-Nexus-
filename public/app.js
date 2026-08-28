@@ -1,1654 +1,1894 @@
-const state = {
-  countries: [],
-};
+:root {
+  --bg: #0b1420;
+  --panel: #121d2e;
+  --panel-border: #223349;
+  --text: #e7ecf5;
+  --text-muted: #8a97ac;
+  --accent: #0f71f0;
+  --accent-dim: #094695;
+  --amber: #f2a93b;
+  --success: #45d483;
+  --danger: #f2596b;
 
-// Feature: Amount — symbols shown to the sender/recipient. Currency codes
-// match countries.json (SGD, MYR, THB, IDR, PHP, VND).
-const CURRENCY_SYMBOLS = {
-  SGD: 'S$',
-  MYR: 'RM',
-  THB: '฿',
-  IDR: 'Rp',
-  PHP: '₱',
-  VND: '₫',
-};
+  /* Elevation scale — three tiers so every floating element (dropdown,
+     card, modal) pulls from the same shadow "DNA" (soft ambient blur with
+     negative spread + a tight contact shadow) instead of hand-tuned
+     one-off values that drift close-but-not-quite over time. */
+  --shadow-sm: 0 12px 28px -12px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 20px 44px -18px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.25);
+  --shadow-md-hover: 0 26px 52px -16px rgba(0, 0, 0, 0.6), 0 4px 10px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 30px 80px -20px rgba(0, 0, 0, 0.65), 0 6px 16px rgba(0, 0, 0, 0.35);
 
-// Feature: Amount / Currency Conversion — IDR and VND are conventionally
-// displayed with no decimal places; the rest use 2.
-const CURRENCY_DECIMALS = {
-  SGD: 2,
-  MYR: 2,
-  THB: 2,
-  IDR: 0,
-  PHP: 2,
-  VND: 0,
-};
-
-// Feature: Receipt — each country's real-world domestic instant payment
-// rail name, shown on the generated PDF for context (e.g. "DuitNow").
-const RAIL_NAMES = {
-  SG: 'FAST',
-  MY: 'DuitNow',
-  TH: 'PromptPay',
-  PH: 'InstaPay',
-  VN: 'NAPAS 247',
-  ID: 'BI-FAST',
-};
-
-const senderCountrySelect = document.getElementById('senderCountry');
-const senderBankSelect = document.getElementById('senderBank');
-const senderCurrencyPrefix = document.getElementById('senderCurrencyPrefix');
-const amountInput = document.getElementById('amount');
-const fxRateLine = document.getElementById('fxRateLine');
-const convertedAmountWrapper = document.getElementById('convertedAmountWrapper');
-const convertedAmountInput = document.getElementById('convertedAmount');
-
-const recipientCountrySelect = document.getElementById('recipientCountry');
-const recipientPhoneInput = document.getElementById('recipientPhone');
-const recipientPhoneHint = document.getElementById('recipientPhoneHint');
-const recipientPreview = document.getElementById('recipientPreview');
-const recipientPreviewName = document.getElementById('recipientPreviewName');
-const recipientPreviewBank = document.getElementById('recipientPreviewBank');
-
-const form = document.getElementById('payment-form');
-const submitBtn = document.getElementById('submitBtn');
-// Feature: Processing flow — the button now has a spinner + a dedicated
-// label span (see index.html) instead of being driven by submitBtn.textContent
-// directly, so the spinner and the text can be shown/hidden independently.
-const submitBtnLabel = document.getElementById('submitBtnLabel');
-const submitHint = document.getElementById('submitHint');
-
-// UX restructure: the payment trace is now a fluid segmented pill progress
-// bar (gradient fill + checkmark steps), living directly under the submit
-// row inside the same hub-panel card, replacing the old SVG rail line.
-const trace = document.getElementById('trace');
-const progressFill = document.getElementById('progressFill');
-
-const STATION_LABELS = ['Compliance', 'Proxy resolution', 'FX conversion', 'Message translation', 'Settled'];
-
-// ---------- Feature: Send confirmation ----------
-// Asks "are you sure?" before the payment actually fires, showing exactly
-// who the money is going to (name / phone / country) so the sender can
-// catch a wrong number before it's too late. Built once and reused so we
-// don't leave stray overlay nodes behind on every submit.
-
-function buildConfirmModal() {
-  const overlay = document.createElement('div');
-  overlay.className = 'modal-overlay';
-  overlay.hidden = true;
-
-  const box = document.createElement('div');
-  box.className = 'modal-box confirm-box';
-  box.setAttribute('role', 'dialog');
-  box.setAttribute('aria-modal', 'true');
-  box.setAttribute('aria-labelledby', 'confirmModalTitle');
-
-  const title = document.createElement('h3');
-  title.id = 'confirmModalTitle';
-  title.className = 'modal-title confirm-title';
-  title.textContent = 'Payment Confirmation';
-
-  const amountBox = document.createElement('div');
-  amountBox.className = 'confirm-amount-box';
-
-  const amountEyebrow = document.createElement('span');
-  amountEyebrow.className = 'confirm-amount-eyebrow';
-  amountEyebrow.textContent = 'Recipient receives';
-  amountBox.appendChild(amountEyebrow);
-
-  const amount = document.createElement('div');
-  amount.className = 'confirm-amount';
-  amountBox.appendChild(amount);
-
-  const amountDivider = document.createElement('hr');
-  amountDivider.className = 'confirm-amount-divider';
-  amountBox.appendChild(amountDivider);
-
-  const detailsBox = document.createElement('div');
-  detailsBox.className = 'confirm-details-box';
-
-  function buildDetailRow(labelText) {
-    const row = document.createElement('p');
-    row.className = 'confirm-detail-row';
-    const label = document.createElement('span');
-    label.className = 'confirm-detail-label';
-    label.textContent = labelText;
-    const value = document.createElement('span');
-    value.className = 'confirm-detail-value';
-    row.appendChild(label);
-    row.appendChild(value);
-    detailsBox.appendChild(row);
-    return value;
-  }
-
-  const nameValue = buildDetailRow('Name');
-  const currencyValue = buildDetailRow('Currency');
-  const countryValue = buildDetailRow('Country');
-
-  const actions = document.createElement('div');
-  actions.className = 'modal-actions confirm-actions';
-
-  const sendBtn = document.createElement('button');
-  sendBtn.type = 'button';
-  sendBtn.className = 'modal-btn modal-btn-primary confirm-btn';
-  sendBtn.textContent = 'Send Payment';
-
-  const cancelBtn = document.createElement('button');
-  cancelBtn.type = 'button';
-  cancelBtn.className = 'modal-btn modal-btn-secondary confirm-btn';
-  cancelBtn.textContent = 'Cancel Payment';
-
-  actions.appendChild(sendBtn);
-  actions.appendChild(cancelBtn);
-  box.appendChild(title);
-  box.appendChild(amountBox);
-  box.appendChild(detailsBox);
-  box.appendChild(actions);
-  overlay.appendChild(box);
-  document.body.appendChild(overlay);
-
-  return { overlay, amount, nameValue, currencyValue, countryValue, cancelBtn, sendBtn };
+  --font-display: 'Inter', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
 }
 
-const confirmModalEls = buildConfirmModal();
-
-// Resolves true if the sender clicked Send, false for Cancel / Escape /
-// backdrop click. Listeners are attached and torn down per-call so repeat
-// opens never double-fire.
-function showConfirmModal({ recipientName, countryName, currencyCode, amountText }) {
-  return new Promise((resolve) => {
-    confirmModalEls.amount.textContent = amountText;
-    confirmModalEls.nameValue.textContent = recipientName;
-    confirmModalEls.currencyValue.textContent = currencyCode;
-    confirmModalEls.countryValue.textContent = countryName;
-
-    confirmModalEls.overlay.hidden = false;
-    requestAnimationFrame(() => confirmModalEls.overlay.classList.add('is-open'));
-    document.body.classList.add('modal-open');
-
-    function cleanup(result) {
-      confirmModalEls.overlay.classList.remove('is-open');
-      window.setTimeout(() => { confirmModalEls.overlay.hidden = true; }, 180);
-      document.body.classList.remove('modal-open');
-      confirmModalEls.cancelBtn.removeEventListener('click', onCancel);
-      confirmModalEls.sendBtn.removeEventListener('click', onSend);
-      confirmModalEls.overlay.removeEventListener('click', onOverlayClick);
-      document.removeEventListener('keydown', onKeydown);
-      resolve(result);
-    }
-
-    function onCancel() {
-      cleanup(false);
-    }
-    function onSend() {
-      cleanup(true);
-    }
-    function onOverlayClick(e) {
-      if (e.target === confirmModalEls.overlay) cleanup(false);
-    }
-    function onKeydown(e) {
-      if (e.key === 'Escape') cleanup(false);
-    }
-
-    confirmModalEls.cancelBtn.addEventListener('click', onCancel);
-    confirmModalEls.sendBtn.addEventListener('click', onSend);
-    confirmModalEls.overlay.addEventListener('click', onOverlayClick);
-    document.addEventListener('keydown', onKeydown);
-
-    confirmModalEls.sendBtn.focus();
-  });
+* {
+  box-sizing: border-box;
 }
 
-// ---------- Feature: Payment sent confirmation ----------
-// Sits directly under the sender/recipient form (.hub-panel), showing
-// "here's what just happened to your money" once the rail finishes.
-
-function buildSuccessPanel() {
-  const panel = document.createElement('div');
-  panel.className = 'success-panel';
-  panel.hidden = true;
-  panel.setAttribute('role', 'status');
-
-  const header = document.createElement('div');
-  header.className = 'success-panel-header';
-
-  const icon = document.createElement('span');
-  icon.className = 'success-panel-icon';
-  icon.textContent = '✓';
-  icon.setAttribute('aria-hidden', 'true');
-
-  const heading = document.createElement('h3');
-  heading.textContent = 'Payment sent';
-
-  const closeBtn = document.createElement('button');
-  closeBtn.type = 'button';
-  closeBtn.className = 'success-panel-close';
-  closeBtn.setAttribute('aria-label', 'Dismiss');
-  closeBtn.textContent = '×';
-  closeBtn.addEventListener('click', () => {
-    panel.hidden = true;
-  });
-
-  header.appendChild(icon);
-  header.appendChild(heading);
-  header.appendChild(closeBtn);
-
-  const amountEyebrow = document.createElement('p');
-  amountEyebrow.className = 'success-panel-eyebrow';
-  amountEyebrow.textContent = 'Amount sent';
-
-  const amount = document.createElement('div');
-  amount.className = 'success-panel-amount';
-
-  const body = document.createElement('div');
-  body.className = 'success-panel-body';
-
-  // Feature: Receipt — a quiet follow-up action below the recipient/country
-  // rows. Disabled until a completed payment actually has data to print.
-  const actions = document.createElement('div');
-  actions.className = 'success-panel-actions';
-
-  const downloadBtn = document.createElement('button');
-  downloadBtn.type = 'button';
-  downloadBtn.className = 'success-panel-download-btn';
-  downloadBtn.disabled = true;
-  downloadBtn.innerHTML =
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg><span>Download receipt</span>';
-  downloadBtn.addEventListener('click', () => {
-    if (lastReceiptData) downloadReceipt(lastReceiptData);
-  });
-
-  actions.appendChild(downloadBtn);
-
-  panel.appendChild(header);
-  panel.appendChild(amountEyebrow);
-  panel.appendChild(amount);
-  panel.appendChild(body);
-  panel.appendChild(actions);
-
-  // form === .hub-panel (the sender/recipient info box), so this lands
-  // immediately below it — below the whole form now, including the rail.
-  form.insertAdjacentElement('afterend', panel);
-
-  return { panel, amount, body, downloadBtn };
+body {
+  margin: 1;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  line-height: 1.5;
+  min-height: 100vh;
+  position: relative;
 }
 
-const successPanelEls = buildSuccessPanel();
-
-// Feature: Receipt — the full payload behind the currently-shown success
-// panel, kept around so the download button (which lives in the panel's
-// persistent DOM, not the confirm-time closure) always has fresh data.
-let lastReceiptData = null;
-
-function showSuccessPanel(data) {
-  const { recipientName, countryName, amountText, msgId, createdAt } = data;
-  successPanelEls.amount.textContent = amountText;
-
-  successPanelEls.body.innerHTML = '';
-  // Reference + timestamp reuse the same msgId/createdAt already generated
-  // for the PDF receipt (see downloadReceipt below) so the number on screen
-  // always matches the number printed on the downloaded copy.
-  const rows = [
-    ['Recipient', recipientName],
-    ['Country', countryName],
-    ['Reference', msgId || '—', true],
-    ['Date', formatReceiptDateTime(createdAt), true],
-  ];
-  rows.forEach(([label, value, mono]) => {
-    const p = document.createElement('p');
-    const labelSpan = document.createElement('span');
-    labelSpan.className = 'label';
-    labelSpan.textContent = label;
-    const valueSpan = document.createElement('span');
-    if (mono) valueSpan.className = 'success-panel-mono';
-    valueSpan.textContent = value;
-    p.appendChild(labelSpan);
-    p.appendChild(valueSpan);
-    successPanelEls.body.appendChild(p);
-  });
-
-  lastReceiptData = data;
-  successPanelEls.downloadBtn.disabled = false;
-
-  successPanelEls.panel.hidden = false;
+.grid-texture {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    linear-gradient(to right, rgba(15, 113, 240, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(15, 113, 240, 0.035) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 40%, transparent 90%);
 }
 
-function hideSuccessPanel() {
-  successPanelEls.panel.hidden = true;
+header.page-header,
+main {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 2400px;
+  margin: 0 auto;
+  padding: 0 64px;
 }
 
-// ---------- Feature: Receipt — downloadable PDF ----------
-// Draws the receipt directly with jsPDF (rather than rasterizing HTML) so
-// the text stays sharp and selectable/searchable in the resulting PDF.
-// Layout mirrors the approved prototype: perforation-style rule under the
-// header, a faint diagonal watermark behind the cards, sender/recipient
-// cards side by side, an amount block with the converted total called out,
-// and a footer disclaimer + reference stamp.
-
-function maskAccountId(accountId) {
-  if (!accountId) return '—';
-  const digits = accountId.replace(/[^0-9]/g, '');
-  if (digits.length <= 4) return accountId;
-  const prefix = accountId.split('-')[0];
-  return `${prefix}-••${digits.slice(-4)}`;
+.page-layout {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 32px;
+  align-items: start;
 }
 
-function downloadReceipt(data) {
-  if (!window.jspdf || !window.jspdf.jsPDF) {
-    console.error('jsPDF failed to load — cannot generate receipt.');
-    return;
-  }
-
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-
-  // Embed a Unicode-capable font (see receipt-font.js) so names with
-  // characters outside WinAnsi/Latin-1 — e.g. Vietnamese "Đinh Kim Ngô" —
-  // render correctly instead of dropping glyphs or mis-measuring width.
-  if (window.registerReceiptFont) {
-    window.registerReceiptFont(doc);
-  } else {
-    console.error('registerReceiptFont not found — is receipt-font.js loaded before app.js?');
-  }
-
-  const pageWidth = 210;
-  const margin = 18;
-  const contentWidth = pageWidth - margin * 2;
-
-  const ink = [26, 26, 26];
-  const inkSoft = [85, 82, 76];
-  const inkFaint = [148, 143, 131];
-  const lineColor = [216, 212, 200];
-  const amber = [190, 128, 32];
-  const amberBg = [253, 243, 226];
-  const green = [40, 105, 66];
-
-  // Watermark first, so it sits visually behind the white content cards
-  // drawn afterward (same effect as z-index in the HTML prototype).
-  try {
-    doc.setGState(new doc.GState({ opacity: 0.05 }));
-  } catch (err) {
-    /* older jsPDF builds without the GState plugin — skip transparency */
-  }
-  doc.setTextColor(...green);
-  doc.setFont('courier', 'bold');
-  doc.setFontSize(70);
-  doc.text('SETTLED', pageWidth / 2, 160, { align: 'center', angle: 18 });
-  try {
-    doc.setGState(new doc.GState({ opacity: 1 }));
-  } catch (err) {
-    /* no-op */
-  }
-
-  let y = 20;
-
-  // ---- Header ----
-  doc.setFillColor(...ink);
-  doc.roundedRect(margin, y, 8, 8, 1.5, 1.5, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFont('courier', 'bold');
-  doc.setFontSize(10);
-  doc.text('N', margin + 4, y + 5.6, { align: 'center' });
-
-  doc.setTextColor(...ink);
-  doc.setFont('courier', 'bold');
-  doc.setFontSize(10.5);
-  doc.text('NEXUS IPS', margin + 11, y + 3.6);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
-  doc.setTextColor(...inkSoft);
-  doc.text('Interlinked Instant Payment Simulator', margin + 11, y + 7.6);
-
-  doc.setTextColor(...ink);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(18);
-  doc.text('Payment Receipt', margin + contentWidth, y + 4, { align: 'right' });
-  doc.setFont('courier', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(...inkSoft);
-  doc.text(data.msgId || '—', margin + contentWidth, y + 9, { align: 'right' });
-
-  y += 16;
-  doc.setDrawColor(...ink);
-  doc.setLineWidth(0.6);
-  doc.line(margin, y, margin + contentWidth, y);
-  y += 8;
-
-  // ---- Status row ----
-  const statusRowH = 16;
-  doc.setDrawColor(...lineColor);
-  doc.setLineWidth(0.3);
-  doc.setFillColor(255, 255, 255);
-  doc.roundedRect(margin, y, contentWidth, statusRowH, 1.5, 1.5, 'FD');
-
-  doc.setFillColor(...green);
-  doc.circle(margin + 6, y + statusRowH / 2, 1.1, 'F');
-  doc.setTextColor(...green);
-  doc.setFont('courier', 'bold');
-  doc.setFontSize(9);
-  doc.text('COMPLETED', margin + 9, y + statusRowH / 2 + 1.2);
-
-  const createdDate = new Date(data.createdAt);
-  const dateText = formatReceiptDateTime(createdDate);
-  const corridor = `${data.senderCountryCode || '—'} -> ${data.recipientCountryCode || '—'}`;
-  const processingText = Number.isFinite(data.processingSeconds)
-    ? `${data.processingSeconds.toFixed(1)}s`
-    : '—';
-
-  const metaCols = [
-    { label: 'DATE ISSUED', value: dateText, width: 44 },
-    { label: 'PROCESSING TIME', value: processingText, width: 30 },
-    { label: 'CORRIDOR', value: corridor, width: 22 },
-  ];
-  const metaTotalWidth = metaCols.reduce((sum, col) => sum + col.width, 0);
-  let metaX = margin + contentWidth - metaTotalWidth - 4;
-  metaCols.forEach((col) => {
-    doc.setFont('courier', 'normal');
-    doc.setFontSize(6.5);
-    doc.setTextColor(...inkFaint);
-    doc.text(col.label, metaX, y + 5.5);
-    doc.setFont('courier', 'bold');
-    doc.setFontSize(8.5);
-    doc.setTextColor(...ink);
-    doc.text(col.value, metaX, y + 10.5);
-    metaX += col.width;
-  });
-
-  y += statusRowH + 10;
-
-  // ---- Sender / Recipient cards ----
-  const partyGap = 6;
-  const partyWidth = (contentWidth - partyGap) / 2;
-  const partyHeight = 34;
-
-  function drawParty(x, title, name, rows) {
-    doc.setDrawColor(...lineColor);
-    doc.setLineWidth(0.3);
-    doc.setFillColor(255, 255, 255);
-    doc.roundedRect(x, y, partyWidth, partyHeight, 1.5, 1.5, 'FD');
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7.5);
-    doc.setTextColor(...amber);
-    doc.text(title.toUpperCase(), x + 5, y + 7);
-
-    // Names come from Faker's locale-specific generators (fakerVI for
-    // Vietnam, etc.) and can contain characters outside WinAnsi/Latin-1,
-    // so this field uses the embedded Unicode font rather than helvetica.
-    doc.setFont(window.registerReceiptFont ? 'InterVN' : 'helvetica', 'bold');
-    doc.setFontSize(11.5);
-    doc.setTextColor(...ink);
-    doc.text(name || '—', x + 5, y + 14);
-
-    let ry = y + 19;
-    rows.forEach(([label, value], idx) => {
-      if (idx > 0) {
-        doc.setDrawColor(...lineColor);
-        doc.setLineDashPattern([0.6, 0.6], 0);
-        doc.line(x + 5, ry - 3.4, x + partyWidth - 5, ry - 3.4);
-        doc.setLineDashPattern([], 0);
-      }
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
-      doc.setTextColor(...inkSoft);
-      doc.text(label, x + 5, ry);
-      doc.setFont('courier', 'normal');
-      doc.setFontSize(8);
-      doc.setTextColor(...ink);
-      doc.text(String(value || '—'), x + partyWidth - 5, ry, { align: 'right' });
-      ry += 5.2;
-    });
-  }
-
-  drawParty(margin, 'Sender', data.senderName, [
-    ['Country', data.senderCountryName],
-    ['Bank', data.senderBankName],
-    ['Sending rail', RAIL_NAMES[data.senderCountryCode] || '—'],
-  ]);
-
-  drawParty(margin + partyWidth + partyGap, 'Recipient', data.recipientName, [
-    ['Country', data.countryName],
-    ['Bank', data.recipientBankName],
-    ['Account', maskAccountId(data.recipientAccountId)],
-  ]);
-
-  y += partyHeight + 8;
-
-  // ---- Amount block ----
-  const amtRowH = 10;
-  const totalRowH = 16;
-  const amtBlockH = amtRowH * 2 + totalRowH;
-
-  doc.setDrawColor(...lineColor);
-  doc.setLineWidth(0.3);
-  doc.setFillColor(255, 255, 255);
-  doc.roundedRect(margin, y, contentWidth, amtBlockH, 1.5, 1.5, 'FD');
-
-  function amtRow(label, value, ry, rh, big) {
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(...inkSoft);
-    doc.text(label, margin + 6, ry + rh / 2 + 1);
-    doc.setFont('courier', big ? 'bold' : 'normal');
-    doc.setFontSize(big ? 15 : 9.5);
-    doc.setTextColor(...ink);
-    doc.text(value, margin + contentWidth - 6, ry + rh / 2 + (big ? 1.6 : 1), { align: 'right' });
-  }
-
-  const rateText = data.exchangeRate
-    ? `1 ${data.fromCurrency} = ${Number(data.exchangeRate).toFixed(4)} ${data.toCurrency}`
-    : '—';
-  const sentAmountText = formatCurrencyPlain(data.senderAmountRaw, data.fromCurrency);
-  const receivedAmountText = formatCurrencyPlain(data.recipientAmountRaw, data.toCurrency);
-
-  amtRow('Amount sent', sentAmountText, y, amtRowH);
-  doc.setDrawColor(...lineColor);
-  doc.line(margin, y + amtRowH, margin + contentWidth, y + amtRowH);
-
-  amtRow('Exchange rate', rateText, y + amtRowH, amtRowH);
-  doc.line(margin, y + amtRowH * 2, margin + contentWidth, y + amtRowH * 2);
-
-  doc.setFillColor(...amberBg);
-  doc.rect(margin + 0.3, y + amtRowH * 2 + 0.3, contentWidth - 0.6, totalRowH - 0.6, 'F');
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10.5);
-  doc.setTextColor(...ink);
-  doc.text('Amount received', margin + 6, y + amtRowH * 2 + totalRowH / 2 + 1.5);
-  doc.setFont('courier', 'bold');
-  doc.setFontSize(15);
-  doc.text(receivedAmountText, margin + contentWidth - 6, y + amtRowH * 2 + totalRowH / 2 + 2, {
-    align: 'right',
-  });
-
-  y += amtBlockH + 12;
-
-  // ---- Footer ----
-  doc.setDrawColor(...lineColor);
-  doc.setLineWidth(0.3);
-  doc.line(margin, y, margin + contentWidth, y);
-  y += 6;
-
-  const disclaimer =
-    'Bank and recipient names are fictionally generated for illustrative purposes only in a demo. ' +
-    'Not affiliated with or endorsed by any institution listed. This receipt is a system-generated ' +
-    'record of a simulated transaction and holds no legal or financial value.';
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
-  doc.setTextColor(...inkSoft);
-  const disclaimerLines = doc.splitTextToSize(disclaimer, contentWidth - 62);
-  doc.text(disclaimerLines, margin, y + 3);
-
-  doc.setFont('courier', 'normal');
-  doc.setFontSize(7);
-  doc.setTextColor(...inkFaint);
-  const generatedText = formatReceiptDateTime(new Date());
-  doc.text(
-    [`Generated ${generatedText}`, `Nexus IPS - Reference ${data.msgId || '—'}`],
-    margin + contentWidth,
-    y + 3,
-    { align: 'right' }
-  );
-
-  y += Math.max(disclaimerLines.length * 3.4, 8) + 8;
-
-  // ---- Barcode strip (decorative, deterministic per reference number) ----
-  const seed = (data.msgId || 'nexus').split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
-  const barWidths = [0.5, 0.9, 1.5, 0.6, 2, 0.8, 1.1];
-  const barH = 8;
-  let bx = margin;
-  let i = 0;
-  doc.setFillColor(...ink);
-  while (bx < margin + contentWidth) {
-    const w = barWidths[(seed + i) % barWidths.length];
-    doc.rect(bx, y, w, barH, 'F');
-    bx += w + 1.3;
-    i += 1;
-  }
-
-  const filenameSafe = (data.msgId || `nexus-receipt-${Date.now()}`).replace(/[^a-zA-Z0-9-]/g, '');
-  doc.save(`${filenameSafe}.pdf`);
+.page-header {
+  padding-top: 120px;
+  padding-bottom: 24px;
 }
 
-// Set right before the real payment request fires, read back once the
-// COMPLETED response comes in — keeps the success panel's wording
-// identical to what the sender already confirmed in the modal.
-let pendingPaymentSummary = null;
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: rgba(15, 113, 240, 0.1);
+  border: 1px solid rgba(15, 113, 240, 0.25);
+  border-radius: 999px;
+  padding: 6px 14px;
+  margin: 0 0 20px;
+}
 
-init();
+.page-header h1 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 44px;
+  line-height: 1.08;
+  margin: 0 0 18px;
+  max-width: 760px;
+  letter-spacing: -0.02em;
+}
 
-async function init() {
-  try {
-    const res = await fetch('/api/countries');
-    state.countries = await res.json();
-    populateCountrySelect(senderCountrySelect, state.countries);
-    populateCountrySelect(recipientCountrySelect, state.countries);
-    senderCountryDropdown.populate(state.countries);
-    recipientCountryDropdown.populate(state.countries);
-  } catch (err) {
-    submitHint.textContent = 'Could not load country list. Is the server running?';
-    submitHint.classList.add('error');
+.accent-text {
+  color: var(--accent);
+}
+
+.subcopy {
+  font-family: var(--font-body);
+  font-weight: 500;
+  color: var(--text-muted);
+  max-width: 540px;
+  font-size: 17px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* Form panel */
+
+.hub-panel {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  grid-template-rows: repeat(6, auto);
+  row-gap: 18px;
+  column-gap: 0;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  padding: 32px;
+  margin-top: 8px;
+}
+
+.hub-column {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: subgrid;
+  grid-row: 1 / -1;
+  padding: 0 16px;
+}
+
+.column-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 0 0 4px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.field .unit {
+  font-family: var(--font-mono);
+  color: var(--accent);
+}
+
+.field input,
+.field select {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--text);
+  background: #0e1826;
+  border: 1px solid var(--panel-border);
+  border-radius: 7px;
+  padding: 10px 12px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.field input:focus,
+.field select:focus {
+  border-color: var(--accent);
+}
+
+.field select:disabled,
+.field input:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.field input.input-error {
+  border-color: var(--danger);
+}
+
+.field input.input-error:focus {
+  border-color: var(--danger);
+}
+
+.field-hint {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin: 2px 0 0;
+}
+
+.field-hint.error {
+  color: var(--danger);
+}
+
+/* Banks — logo chip (white tile so every bank's brand colors stay legible
+   against the dark panel) with a neutral fallback tile for banks we don't
+   have a sourced logo for yet */
+
+.bank-chip {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: #f4f4f2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.bank-chip img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 4px;
+  box-sizing: border-box;
+}
+
+.bank-chip-fallback {
+  background: #24344a;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.custom-select-chip-slot {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  min-width: 28px;
+}
+
+.custom-select-chip-slot:empty {
+  display: none;
+}
+
+.custom-select-list li .bank-chip {
+  width: 26px;
+  height: 26px;
+}
+
+.custom-select-trigger:disabled,
+.custom-select-trigger.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Countries — custom flag dropdown (replaces native <select> visually,
+   which stays in the DOM hidden and functional for value + change events) */
+
+.native-select-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.custom-select {
+  position: relative;
+}
+
+.custom-select-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--text);
+  background: #0e1826;
+  border: 1px solid var(--panel-border);
+  border-radius: 7px;
+  padding: 10px 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s ease;
+}
+
+.custom-select-trigger:hover {
+  border-color: var(--accent-dim);
+}
+
+.custom-select-trigger:focus,
+.custom-select-trigger[aria-expanded="true"] {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* Flags — small rectangular image tile, rounded to match the bank chips'
+   general feel without pretending it's a chip (flags keep their native
+   4x3 aspect ratio instead of being squared off). */
+
+.custom-select-flag {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  width: 22px;
+}
+
+.custom-select-flag:empty {
+  display: none;
+}
+
+.flag-icon {
+  width: 22px;
+  height: auto;
+  border-radius: 2px;
+  display: block;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.custom-select-label {
+  flex: 1;
+  color: var(--text-muted);
+}
+
+.custom-select-trigger .custom-select-label:not(:empty) {
+  color: var(--text);
+}
+
+.custom-select-caret {
+  color: var(--text-muted);
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+/* Feature: Dropdown open/close transition — the list used to be shown/hidden
+   with a hard display:none cut (or, if app.js mounts/unmounts the <ul> from
+   the DOM entirely, there was nothing for CSS to animate at all). This now
+   drives visibility off the `hidden` attribute — same one app.js may already
+   be toggling on .custom-select-trigger's aria-expanded sibling — using
+   @starting-style so the browser tweens opacity/transform across the
+   display:none <-> display:block flip instead of snapping.
+   NOTE: if app.js currently removes/re-appends the <ul> from the DOM rather
+   than toggling a `hidden` attribute on it, this needs one small JS change:
+   keep the <ul> in the DOM and toggle `listEl.hidden = false/true` instead
+   of append/remove. Send the relevant open/close function if so and I'll
+   adjust in place. */
+
+.custom-select-list {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  max-height: 240px;
+  overflow-y: auto;
+  background: #0e1826;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  padding: 6px;
+  margin: 0;
+  list-style: none;
+  box-shadow: var(--shadow-sm);
+  transform-origin: top center;
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s cubic-bezier(0.16, 1, 0.3, 1),
+    display 0.16s ease allow-discrete;
+}
+
+.custom-select-list[hidden] {
+  display: none;
+  opacity: 0;
+  transform: translateY(-4px) scale(0.98);
+  transition:
+    opacity 0.12s ease,
+    transform 0.12s ease,
+    display 0.12s ease allow-discrete;
+}
+
+@starting-style {
+  .custom-select-list:not([hidden]) {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
   }
 }
 
-function populateCountrySelect(select, countries) {
-  countries.forEach((country) => {
-    const opt = document.createElement('option');
-    opt.value = country.code;
-    opt.textContent = `${country.name} (${country.currency})`;
-    select.appendChild(opt);
-  });
+.custom-select-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  color: var(--text);
+  padding: 9px 10px;
+  border-radius: 6px;
+  cursor: pointer;
 }
 
-function getCountryObj(code) {
-  return state.countries.find((c) => c.code === code);
+.custom-select-list li .flag-icon {
+  width: 20px;
 }
 
-// ---------- Countries — flag rendering ----------
-// Feature: Countries — renders each country's flag as a sourced SVG image
-// instead of a Unicode flag emoji. Windows renders flag emoji as plain
-// two-letter codes rather than pictures (a platform-level font choice, not
-// a bug in this app), so an image asset is the only way to guarantee the
-// flag actually looks like a flag for every user regardless of OS. Same
-// pattern as BANK_LOGOS below: a lookup map + a neutral fallback.
-const COUNTRY_FLAGS = {
-  SG: 'sg.svg',
-  MY: 'my.svg',
-  TH: 'th.svg',
-  ID: 'id.svg',
-  PH: 'ph.svg',
-  VN: 'vn.svg',
-};
-
-const FLAG_BASE_PATH = 'assets/flags/';
-
-function buildFlagImg(countryCode, countryName) {
-  const img = document.createElement('img');
-  img.className = 'flag-icon';
-  const file = COUNTRY_FLAGS[countryCode];
-  if (file) {
-    img.src = FLAG_BASE_PATH + file;
-  }
-  img.alt = '';
-  img.loading = 'lazy';
-  img.title = countryName || '';
-  return img;
+.custom-select-list li:hover,
+.custom-select-list li:focus {
+  outline: none;
+  background: rgba(15, 113, 240, 0.1);
 }
 
-// Builds a fully custom, keyboard-accessible listbox over a hidden native
-// <select>. The native select stays the source of truth for .value and still
-// fires real 'change' events, so all existing logic that reads
-// senderCountrySelect.value / recipientCountrySelect.value or listens for
-// 'change' on those elements keeps working untouched.
-function setupCountryDropdown(containerId, selectEl) {
-  const container = document.getElementById(containerId);
-  const trigger = container.querySelector('.custom-select-trigger');
-  const triggerFlagSlot = trigger.querySelector('.custom-select-flag');
-  const triggerLabel = trigger.querySelector('.custom-select-label');
-  const list = container.querySelector('.custom-select-list');
-
-  function close() {
-    list.classList.remove('is-open');
-    window.setTimeout(() => { list.hidden = true; }, 150);
-    trigger.setAttribute('aria-expanded', 'false');
-  }
-
-  function open() {
-    list.hidden = false;
-    requestAnimationFrame(() => list.classList.add('is-open'));
-    trigger.setAttribute('aria-expanded', 'true');
-    const active = list.querySelector('[aria-selected="true"]') || list.querySelector('li');
-    if (active) active.focus();
-  }
-
-  function toggle() {
-    if (!list.classList.contains('is-open')) open();
-    else close();
-  }
-
-  function selectCountry(country) {
-    selectEl.value = country.code;
-    triggerFlagSlot.innerHTML = '';
-    triggerFlagSlot.appendChild(buildFlagImg(country.code, country.name));
-    triggerLabel.textContent = `${country.name} (${country.currency})`;
-    list.querySelectorAll('li').forEach((li) => {
-      li.setAttribute('aria-selected', li.dataset.code === country.code ? 'true' : 'false');
-    });
-    close();
-    trigger.focus();
-    selectEl.dispatchEvent(new Event('change', { bubbles: true }));
-  }
-
-  function reset(placeholder) {
-    selectEl.value = '';
-    triggerFlagSlot.innerHTML = '';
-    triggerLabel.textContent = placeholder;
-    list.querySelectorAll('li').forEach((li) => li.setAttribute('aria-selected', 'false'));
-  }
-
-  function populate(countries) {
-    list.innerHTML = '';
-    countries.forEach((country) => {
-      const li = document.createElement('li');
-      li.setAttribute('role', 'option');
-      li.setAttribute('tabindex', '-1');
-      li.setAttribute('aria-selected', 'false');
-      li.dataset.code = country.code;
-
-      li.appendChild(buildFlagImg(country.code, country.name));
-
-      const textSpan = document.createElement('span');
-      textSpan.textContent = `${country.name} (${country.currency})`;
-
-      li.appendChild(textSpan);
-
-      li.addEventListener('click', () => selectCountry(country));
-      li.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          selectCountry(country);
-        } else if (e.key === 'ArrowDown') {
-          e.preventDefault();
-          if (li.nextElementSibling) li.nextElementSibling.focus();
-        } else if (e.key === 'ArrowUp') {
-          e.preventDefault();
-          if (li.previousElementSibling) li.previousElementSibling.focus();
-        } else if (e.key === 'Escape') {
-          close();
-          trigger.focus();
-        }
-      });
-
-      list.appendChild(li);
-    });
-  }
-
-  trigger.addEventListener('click', toggle);
-  trigger.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      open();
-    } else if (e.key === 'Escape') {
-      close();
-    }
-  });
-
-  document.addEventListener('click', (e) => {
-    if (!container.contains(e.target)) close();
-  });
-
-  return { populate, reset };
+.custom-select-list li[aria-selected="true"] {
+  background: rgba(15, 113, 240, 0.16);
+  color: var(--accent);
 }
 
-const senderCountryDropdown = setupCountryDropdown('senderCountryCustom', senderCountrySelect);
-const recipientCountryDropdown = setupCountryDropdown('recipientCountryCustom', recipientCountrySelect);
+/* Amount (box 1) — currency-symbol prefix + live-formatted numeral */
 
-// ---------- Banks — logo chips ----------
-// Feature: Banks — maps each bank name to a logo asset where we have one on
-// file. Names not in this map fall back to an initials chip so every bank
-// renders consistently (same tile shape/size) whether or not a real logo
-// was sourced. Shared institutions (HSBC, Citibank, Standard Chartered,
-// UOB, Maybank, CIMB, RHB) reuse one asset across the countries they
-// appear in under slightly different label text.
-const BANK_LOGOS = {
-  'DBS Bank': 'D05.SI.svg',
-  'OCBC Bank': 'O39.SI.svg',
-  'UOB': 'U11.SI_BIG.svg',
-  'UOB Malaysia': 'U11.SI_BIG.svg',
-  'UOB Thailand': 'U11.SI_BIG.svg',
-  'UOB Indonesia': 'U11.SI_BIG.svg',
-  'HSBC': 'HSBC.svg',
-  'Citibank': 'C.svg',
-  'Standard Chartered': 'STAN.L.svg',
-  'Maybank Singapore': 'MLYBY.svg',
-  'Maybank': 'MLYBY.svg',
-  'CIMB Singapore': '1023.KL.svg',
-  'CIMB Bank': '1023.KL.svg',
-  'CIMB Niaga': '1023.KL.svg',
-  'RHB Bank Singapore': 'RHB_Logo.svg.webp',
-  'RHB Bank': 'RHB_Logo.svg.webp',
-  'Bank of China (Singapore)': '601988.SS.svg',
-  'Public Bank': '1295.KL.svg',
-  'Hong Leong Bank': '5819.KL.svg',
-  'Bangkok Bank': 'BBL.BK.svg',
-  'Kasikornbank': 'KBANK.BK.svg',
-  'Siam Commercial Bank': 'SCB.BK.svg',
-  'Krung Thai Bank': 'KTB.BK.svg',
-  'Bank of Ayudhya (Krungsri)': 'BAY.BK.svg',
-  'TMBThanachart Bank': 'TTB.BK.svg',
-  'Bank Central Asia (BCA)': 'BBCA.JK.svg',
-  'Bank Mandiri': 'BMRI.JK.svg',
-  'Bank Rakyat Indonesia (BRI)': 'BBRI.JK.svg',
-  'Bank Negara Indonesia (BNI)': 'BBNI.JK.svg',
-  'Bank Danamon': 'BDMN.JK.png',
-  'BDO Unibank': 'BDOUY.svg',
-  'Bank of the Philippine Islands (BPI)': 'BPHLY.svg',
-  'Metrobank': 'MTPOY.svg',
-  'BIDV': 'BID.VN.svg',
-  'AmBank': 'ambank.webp',
-  'Land Bank of the Philippines': 'landbank.webp',
-  'Philippine National Bank (PNB)': 'pnb.png',
-  'Security Bank': 'security-bank.jpg',
-  'UnionBank': 'unionbank.png',
-  'Vietcombank': 'vietcombank.webp',
-  'Techcombank': 'techcombank.png',
-  'VietinBank': 'vietinbank.png',
-  'Asia Commercial Bank (ACB)': 'acb.webp',
-  'Sacombank': 'sacombank.png',
-  'ANZ Vietnam': 'anz-vietnam.webp',
-};
-
-const LOGO_BASE_PATH = 'assets/banks/';
-
-function getBankInitials(name) {
-  const words = name.replace(/\(.*?\)/g, '').trim().split(/\s+/).filter(Boolean);
-  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
-  return (words[0][0] + words[1][0]).toUpperCase();
+.amount-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #0e1826;
+  border: 1px solid var(--panel-border);
+  border-radius: 7px;
+  padding: 0 12px;
+  transition: border-color 0.15s ease;
 }
 
-function buildBankChip(bankName) {
-  const chip = document.createElement('span');
-  chip.className = 'bank-chip';
-
-  const logoFile = BANK_LOGOS[bankName];
-  if (logoFile) {
-    const img = document.createElement('img');
-    img.src = LOGO_BASE_PATH + logoFile;
-    img.alt = '';
-    img.loading = 'lazy';
-    chip.appendChild(img);
-  } else {
-    chip.classList.add('bank-chip-fallback');
-    chip.textContent = getBankInitials(bankName);
-  }
-
-  return chip;
+.amount-input-wrapper:focus-within {
+  border-color: var(--accent);
 }
 
-// Same wrapping pattern as setupCountryDropdown: a hidden native <select>
-// stays the source of truth for .value and 'change' events, with a custom
-// listbox layered on top so each option can show a logo chip.
-function setupBankDropdown(containerId, selectEl) {
-  const container = document.getElementById(containerId);
-  const trigger = container.querySelector('.custom-select-trigger');
-  const triggerChipSlot = trigger.querySelector('.custom-select-chip-slot');
-  const triggerLabel = trigger.querySelector('.custom-select-label');
-  const list = container.querySelector('.custom-select-list');
-
-  function close() {
-    list.classList.remove('is-open');
-    window.setTimeout(() => { list.hidden = true; }, 150);
-    trigger.setAttribute('aria-expanded', 'false');
-  }
-
-  function open() {
-    if (trigger.disabled) return;
-    list.hidden = false;
-    requestAnimationFrame(() => list.classList.add('is-open'));
-    trigger.setAttribute('aria-expanded', 'true');
-    const active = list.querySelector('[aria-selected="true"]') || list.querySelector('li');
-    if (active) active.focus();
-  }
-
-  function toggle() {
-    if (!list.classList.contains('is-open')) open();
-    else close();
-  }
-
-  function selectBank(bankName) {
-    selectEl.value = bankName;
-    triggerChipSlot.innerHTML = '';
-    triggerChipSlot.appendChild(buildBankChip(bankName));
-    triggerLabel.textContent = bankName;
-    list.querySelectorAll('li').forEach((li) => {
-      li.setAttribute('aria-selected', li.dataset.bank === bankName ? 'true' : 'false');
-    });
-    close();
-    trigger.focus();
-    selectEl.dispatchEvent(new Event('change', { bubbles: true }));
-  }
-
-  function reset(placeholder) {
-    selectEl.value = '';
-    triggerChipSlot.innerHTML = '';
-    triggerLabel.textContent = placeholder;
-    list.innerHTML = '';
-  }
-
-  function setDisabled(isDisabled) {
-    trigger.disabled = isDisabled;
-    trigger.classList.toggle('is-disabled', isDisabled);
-    if (isDisabled) close();
-  }
-
-  function populate(bankNames) {
-    list.innerHTML = '';
-    bankNames.forEach((bankName) => {
-      const li = document.createElement('li');
-      li.setAttribute('role', 'option');
-      li.setAttribute('tabindex', '-1');
-      li.setAttribute('aria-selected', 'false');
-      li.dataset.bank = bankName;
-
-      li.appendChild(buildBankChip(bankName));
-
-      const textSpan = document.createElement('span');
-      textSpan.textContent = bankName;
-      li.appendChild(textSpan);
-
-      li.addEventListener('click', () => selectBank(bankName));
-      li.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          selectBank(bankName);
-        } else if (e.key === 'ArrowDown') {
-          e.preventDefault();
-          if (li.nextElementSibling) li.nextElementSibling.focus();
-        } else if (e.key === 'ArrowUp') {
-          e.preventDefault();
-          if (li.previousElementSibling) li.previousElementSibling.focus();
-        } else if (e.key === 'Escape') {
-          close();
-          trigger.focus();
-        }
-      });
-
-      list.appendChild(li);
-    });
-  }
-
-  trigger.addEventListener('click', toggle);
-  trigger.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      open();
-    } else if (e.key === 'Escape') {
-      close();
-    }
-  });
-
-  document.addEventListener('click', (e) => {
-    if (!container.contains(e.target)) close();
-  });
-
-  return { populate, reset, setDisabled };
+.amount-input-wrapper input {
+  border: none;
+  background: transparent;
+  padding: 10px 0;
+  flex: 1;
+  min-width: 0;
 }
 
-const senderBankDropdown = setupBankDropdown('senderBankCustom', senderBankSelect);
-
-// ---------- Debounce helper ----------
-
-function debounce(fn, delay) {
-  let timer;
-  return (...args) => {
-    clearTimeout(timer);
-    timer = setTimeout(() => fn(...args), delay);
-  };
+.amount-input-wrapper input:focus {
+  border: none;
 }
 
-// ---------- Amount formatting (box 1) ----------
-// Feature: Amount — live thousands-separator formatting as the sender types,
-// keeping a clean numeric value available underneath for calculations/submit.
-
-function formatAmountInputValue(raw) {
-  let cleaned = raw.replace(/[^\d.]/g, '');
-
-  const firstDot = cleaned.indexOf('.');
-  if (firstDot !== -1) {
-    cleaned = cleaned.slice(0, firstDot + 1) + cleaned.slice(firstDot + 1).replace(/\./g, '');
-  }
-
-  const [intPart, decPart] = cleaned.split('.');
-  const intWithCommas = intPart ? Number(intPart).toLocaleString('en-US') : '';
-
-  if (decPart !== undefined) {
-    return `${intWithCommas}.${decPart.slice(0, 2)}`;
-  }
-  return intWithCommas;
+.currency-prefix {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--accent);
+  flex-shrink: 0;
 }
 
-function getRawAmountValue() {
-  const numeric = Number(amountInput.value.replace(/,/g, ''));
-  return Number.isFinite(numeric) ? numeric : 0;
+/* Feature: Amount / Currency Conversion — THB (฿) and VND (₫) are harder to
+   read in the teal accent color, so this override switches those two to
+   plain white. Applied via JS (applyCurrencyColor) based on currency code. */
+.currency-prefix.currency-alt {
+  color: #ffffff;
 }
 
-function formatCurrency(value, currencyCode) {
-  const symbol = CURRENCY_SYMBOLS[currencyCode] || currencyCode;
-  const decimals = CURRENCY_DECIMALS[currencyCode] ?? 2;
-  const number = Number(value);
-  if (!Number.isFinite(number)) return '';
-  const formatted = number.toLocaleString('en-US', {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
-  return `${symbol} ${formatted}`;
+/* FX Rate line */
+
+.fx-rate-line {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--text-muted);
+  margin: -4px 0 0;
 }
 
-// Feature: Receipt — jsPDF's built-in fonts only cover WinAnsi/Latin
-// characters, so ฿ (THB), ₱ (PHP), and ₫ (VND) either render as missing-
-// glyph boxes or get measured at the wrong width (which is what pushed
-// text off the page edge). The PDF uses ISO currency codes instead of
-// symbols everywhere, never the CURRENCY_SYMBOLS glyphs.
-function formatCurrencyPlain(value, currencyCode) {
-  const decimals = CURRENCY_DECIMALS[currencyCode] ?? 2;
-  const number = Number(value);
-  if (!Number.isFinite(number)) return '—';
-  const formatted = number.toLocaleString('en-US', {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
-  return `${currencyCode || ''} ${formatted}`.trim();
+/* Currency Conversion (box 2) — read-only, visually distinct as a result */
+
+.converted-amount {
+  font-family: var(--font-display) !important;
+  font-weight: 700;
+  font-size: 19px;
+  letter-spacing: -0.01em;
+  color: var(--text) !important;
+  cursor: default;
 }
 
-// Feature: Receipt — a fixed, locale-independent date formatter for the
-// PDF. toLocaleString's AM/PM output varies by browser/OS (extra spaces,
-// different casing) and was overflowing its column; this is always the
-// same length and ASCII-only.
-function formatReceiptDateTime(input) {
-  const d = input instanceof Date ? input : new Date(input);
-  if (Number.isNaN(d.getTime())) return '—';
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const day = String(d.getDate()).padStart(2, '0');
-  const month = months[d.getMonth()];
-  const year = d.getFullYear();
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mm = String(d.getMinutes()).padStart(2, '0');
-  return `${day} ${month} ${year}, ${hh}:${mm}`;
+.converted-amount.currency-alt {
+  color: var(--text) !important;
 }
 
-function formatRate(rate) {
-  return Number(rate).toLocaleString('en-US', { maximumFractionDigits: 4 });
+/* Recipient name/bank preview */
+
+.recipient-preview {
+  background: #101d30;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-top: 6px;
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  transform: translateY(8px);
+  animation: reveal 0.4s ease forwards;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-amountInput.addEventListener('input', () => {
-  amountInput.value = formatAmountInputValue(amountInput.value);
-  debouncedUpdateConvertedAmount();
-});
+.recipient-preview:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md-hover);
+}
 
-// ---------- FX Rate + Currency Conversion (box 2) ----------
-// Feature: FX Rate — shows "1 SGD = X IDR" as soon as both currencies are known.
-// Feature: Currency Conversion — shows the live converted amount as the
-// sender types into box 1. Both pull from GET /api/fx-quote/:from/:to.
+.recipient-preview p {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  margin: 0 0 4px;
+  color: var(--text);
+}
 
-async function updateFxRate() {
-  const sender = getCountryObj(senderCountrySelect.value);
-  const recipient = getCountryObj(recipientCountrySelect.value);
+.recipient-preview p:last-child {
+  margin-bottom: 0;
+}
 
-  if (!sender || !recipient) {
-    fxRateLine.hidden = true;
-    return;
-  }
+.recipient-preview .label {
+  color: var(--text-muted);
+  margin-right: 6px;
+}
 
-  try {
-    const res = await fetch(`/api/fx-quote/${sender.currency}/${recipient.currency}`);
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'FX quote failed');
+.hub-divider {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 26px;
+  grid-row: 1 / -1;
+}
 
-    fxRateLine.textContent = `1 ${sender.currency} = ${formatRate(data.rate)} ${recipient.currency}`;
-    fxRateLine.hidden = false;
-  } catch (err) {
-    fxRateLine.hidden = true;
+.hub-node {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
+.hub-line {
+  width: 1px;
+  flex: 1;
+  background: var(--panel-border);
+  margin: 4px 0;
+}
+
+.submit-row {
+  grid-column: 1 / -1;
+  grid-row: 7;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--panel-border);
+}
+
+#submitBtn {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 15px;
+  color: #06120f;
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  padding: 12px 22px;
+  cursor: pointer;
+  box-shadow: 0 3px 0 var(--accent-dim);
+  transition: transform 0.08s ease, box-shadow 0.2s ease;
+}
+
+/* Hover keeps the accent hue (no swap to an off-palette color) and instead
+   signals "you're on the target" with a soft accent glow + a slight lift,
+   layered on top of the existing 3D-press ridge shadow rather than
+   replacing it. */
+#submitBtn:hover:not(:disabled) {
+  box-shadow:
+    0 3px 0 var(--accent-dim),
+    0 0 0 4px rgba(15, 113, 240, 0.16),
+    0 10px 24px -8px rgba(15, 113, 240, 0.5);
+  transform: translateY(-1px);
+}
+
+#submitBtn:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: 0 0 0 var(--accent-dim);
+}
+
+#submitBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.submit-hint {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.submit-hint.error {
+  color: var(--danger);
+}
+
+/* Feature: Send confirmation — modal overlay shown after "Send payment" is
+   clicked, before the request actually fires. Backdrop click / Escape both
+   act as Cancel (handled in app.js).
+
+   Transition note: visibility is still driven purely by the `hidden`
+   attribute exactly as app.js already toggles it — no JS change needed.
+   @starting-style tells the browser what state to tween FROM the instant
+   `hidden` is removed, and `transition-behavior: allow-discrete` (paired
+   with a `display` transition) lets opacity/transform animate across the
+   display:none <-> flex flip instead of hard-cutting. */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 12, 20, 0.72);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 20px;
+  opacity: 1;
+  transition: opacity 0.22s ease, display 0.22s ease allow-discrete;
+}
+
+.modal-overlay[hidden] {
+  display: none;
+  opacity: 0;
+  transition: opacity 0.22s ease, display 0.22s ease allow-discrete;
+}
+
+@starting-style {
+  .modal-overlay:not([hidden]) {
+    opacity: 0;
   }
 }
 
-async function updateConvertedAmount() {
-  const sender = getCountryObj(senderCountrySelect.value);
-  const recipient = getCountryObj(recipientCountrySelect.value);
-  const rawAmount = getRawAmountValue();
-
-  if (!sender || !recipient || !rawAmount || rawAmount <= 0) {
-    convertedAmountWrapper.hidden = true;
-    convertedAmountInput.value = '';
-    return;
-  }
-
-  try {
-    const res = await fetch(`/api/fx-quote/${sender.currency}/${recipient.currency}?amount=${rawAmount}`);
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'FX quote failed');
-
-    convertedAmountInput.value = formatCurrency(data.convertedAmount, recipient.currency);
-    convertedAmountWrapper.hidden = false;
-  } catch (err) {
-    convertedAmountWrapper.hidden = true;
-    convertedAmountInput.value = '';
-  }
+.modal-box {
+  position: relative;
+  border-radius: 20px;
+  padding: 34px 28px 28px;
+  max-width: 480px;
+  width: 100%;
+  border: 1.5px solid transparent;
+  background-image:
+    radial-gradient(140% 120% at 8% -10%, rgba(15, 113, 240, 0.26), transparent 55%),
+    radial-gradient(140% 120% at 100% 120%, rgba(124, 92, 255, 0.24), transparent 55%),
+    linear-gradient(rgba(15, 23, 36, 0.95), rgba(15, 23, 36, 0.95)),
+    linear-gradient(135deg, rgba(15, 113, 240, 0.95), rgba(124, 92, 255, 0.6));
+  background-clip: padding-box, padding-box, padding-box, border-box;
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  transform: scale(1);
+  transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-const debouncedUpdateConvertedAmount = debounce(updateConvertedAmount, 300);
-
-function refreshFxDisplays() {
-  updateFxRate();
-  updateConvertedAmount();
+.modal-overlay[hidden] .modal-box {
+  transform: scale(0.94);
 }
 
-// ---------- Sender country / bank ----------
-
-senderCountrySelect.addEventListener('change', async () => {
-  const code = senderCountrySelect.value;
-  const country = getCountryObj(code);
-  senderCurrencyPrefix.textContent = country ? (CURRENCY_SYMBOLS[country.currency] || country.currency) : '—';
-
-  senderBankSelect.disabled = true;
-  senderBankDropdown.reset('Loading banks…');
-  senderBankDropdown.setDisabled(true);
-
-  try {
-    const res = await fetch(`/api/banks/${code}`);
-    const banks = await res.json();
-
-    senderBankSelect.innerHTML = '<option value="" disabled selected>Select bank</option>';
-    banks.forEach((bank) => {
-      const opt = document.createElement('option');
-      opt.value = bank;
-      opt.textContent = bank;
-      senderBankSelect.appendChild(opt);
-    });
-
-    senderBankDropdown.reset('Select bank');
-    senderBankDropdown.populate(banks);
-    senderBankDropdown.setDisabled(false);
-    senderBankSelect.disabled = false;
-  } catch (err) {
-    senderBankDropdown.reset('Could not load banks');
-  }
-
-  refreshFxDisplays();
-});
-
-// ---------- Recipient phone masking ----------
-// Feature: Recipient Phone Number — auto-inserts spaces as the person types,
-// mirroring each country's phoneExample layout so it works for any country
-// without needing extra formatting data.
-
-function getPhoneFormat(country) {
-  const dialDigits = country.dialCode.replace(/\D/g, '');
-  const cleanExample = country.phoneExample.replace(/[^\d\s]/g, '').trim();
-  const tokens = cleanExample.split(/\s+/).filter(Boolean);
-  let groupSizes = tokens.slice(1).map((t) => t.length);
-
-  if (groupSizes.length === 0) {
-    groupSizes = [country.phoneDigits];
-  }
-
-  return { dialDigits, groupSizes };
-}
-
-function formatPhoneValue(digitsAfterDial, dialDigits, groupSizes) {
-  let result = `+${dialDigits}`;
-  let idx = 0;
-
-  for (const size of groupSizes) {
-    const chunk = digitsAfterDial.slice(idx, idx + size);
-    if (chunk.length === 0) break;
-    result += ` ${chunk}`;
-    idx += size;
-  }
-
-  return result;
-}
-
-function applyPhoneMask() {
-  const country = getCountryObj(recipientCountrySelect.value);
-  if (!country) return;
-
-  const { dialDigits, groupSizes } = getPhoneFormat(country);
-  let digits = recipientPhoneInput.value.replace(/\D/g, '');
-
-  // If there aren't more digits than the dial code itself, the person has
-  // backspaced into (or not yet past) the dial code — snap back to the bare
-  // dial code rather than treating a partially-deleted dial code as the
-  // start of a national number (that's what produced a stray leftover digit).
-  if (digits.length <= dialDigits.length) {
-    recipientPhoneInput.value = `+${dialDigits}`;
-    return;
-  }
-
-  if (digits.startsWith(dialDigits)) {
-    digits = digits.slice(dialDigits.length);
-  }
-
-  digits = digits.slice(0, country.phoneDigits);
-  recipientPhoneInput.value = formatPhoneValue(digits, dialDigits, groupSizes);
-}
-
-recipientCountrySelect.addEventListener('change', () => {
-  const code = recipientCountrySelect.value;
-  const country = getCountryObj(code);
-
-  hideRecipientPreview();
-
-  if (!country) {
-    clearPhoneHint();
-    recipientPhoneInput.value = '';
-    recipientPhoneInput.disabled = true;
-    recipientPhoneInput.placeholder = 'Select country first';
-    refreshFxDisplays();
-    return;
-  }
-
-  recipientPhoneInput.disabled = false;
-  recipientPhoneInput.placeholder = country.phoneExample;
-  // Pre-fill the dial code so the person only has to type the national number.
-  recipientPhoneInput.value = `+${country.dialCode.replace(/\D/g, '')}`;
-  showFormatHint(country);
-
-  refreshFxDisplays();
-});
-
-// Validates the recipient phone number against the selected recipient
-// country's dial code + expected digit length. Mirrors the same check the
-// server re-runs in routes/payments.js, so the person gets instant feedback
-// here but the server never trusts this alone.
-function validateRecipientPhone() {
-  const code = recipientCountrySelect.value;
-  const country = getCountryObj(code);
-  if (!country) return true; // nothing to validate yet — country not chosen
-
-  const value = recipientPhoneInput.value.trim();
-  if (!value) {
-    setPhoneError(`Phone number is required, e.g. ${country.phoneExample}`);
-    return false;
-  }
-
-  const compact = value.replace(/[\s-]/g, '');
-
-  if (!compact.startsWith(country.dialCode)) {
-    setPhoneError(`Phone number must start with ${country.dialCode} for ${country.name}, e.g. ${country.phoneExample}`);
-    return false;
-  }
-
-  const nationalNumber = compact.slice(country.dialCode.length);
-  if (!/^\d+$/.test(nationalNumber) || nationalNumber.length !== country.phoneDigits) {
-    setPhoneError(`${country.name} numbers need ${country.phoneDigits} digits after ${country.dialCode}, e.g. ${country.phoneExample}`);
-    return false;
-  }
-
-  showFormatHint(country);
-  return true;
-}
-
-// Side-effect-free version of the same check validateRecipientPhone runs —
-// used while the person is still typing, where we want to know "is this
-// number complete yet?" without flashing the red error hint on every
-// debounce tick before they've finished entering it.
-function isRecipientPhoneComplete(country) {
-  const value = recipientPhoneInput.value.trim();
-  if (!value) return false;
-
-  const compact = value.replace(/[\s-]/g, '');
-  if (!compact.startsWith(country.dialCode)) return false;
-
-  const nationalNumber = compact.slice(country.dialCode.length);
-  return /^\d+$/.test(nationalNumber) && nationalNumber.length === country.phoneDigits;
-}
-
-// Feature: Recipient Phone Number — the hint line under the field has two
-// states: a neutral "here's the format" guide (shown as soon as a country is
-// picked, and again once the number becomes valid) and a red validation
-// error (shown only on blur/submit, never mid-typing, so the field doesn't
-// flash red after the very first keystroke).
-function showFormatHint(country) {
-  recipientPhoneHint.textContent = `Format: ${country.phoneExample}`;
-  recipientPhoneHint.hidden = false;
-  recipientPhoneHint.classList.remove('error');
-  recipientPhoneInput.classList.remove('input-error');
-}
-
-function setPhoneError(message) {
-  recipientPhoneHint.textContent = message;
-  recipientPhoneHint.hidden = false;
-  recipientPhoneHint.classList.add('error');
-  recipientPhoneInput.classList.add('input-error');
-}
-
-function clearPhoneHint() {
-  recipientPhoneHint.textContent = '';
-  recipientPhoneHint.hidden = true;
-  recipientPhoneHint.classList.remove('error');
-  recipientPhoneInput.classList.remove('input-error');
-}
-
-// ---------- Recipient preview (name + bank) ----------
-// Feature: Recipient — reveals the resolved name/bank as soon as the phone
-// number is valid, via GET /api/recipient/:country/:phone. Replaces waiting
-// for full submission to learn who the money is going to.
-
-function hideRecipientPreview() {
-  recipientPreview.hidden = true;
-  recipientPreviewName.textContent = '';
-  recipientPreviewBank.textContent = '';
-}
-
-async function updateRecipientPreview() {
-  const country = getCountryObj(recipientCountrySelect.value);
-  if (!country || !isRecipientPhoneComplete(country)) {
-    hideRecipientPreview();
-    return;
-  }
-
-  const phone = recipientPhoneInput.value.trim();
-
-  try {
-    const res = await fetch(`/api/recipient/${country.code}/${encodeURIComponent(phone)}`);
-    const data = await res.json();
-
-    if (!res.ok || !data.valid) {
-      hideRecipientPreview();
-      return;
-    }
-
-    recipientPreviewName.textContent = data.recipient.recipientName;
-    recipientPreviewBank.textContent = data.recipient.bankName;
-    recipientPreview.hidden = false;
-  } catch (err) {
-    hideRecipientPreview();
+@starting-style {
+  .modal-overlay:not([hidden]) .modal-box {
+    transform: scale(0.94);
   }
 }
 
-const debouncedUpdateRecipientPreview = debounce(updateRecipientPreview, 400);
+.modal-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 18px;
+  margin: 0 0 16px;
+  color: var(--text);
+}
 
-recipientPhoneInput.addEventListener('keydown', (e) => {
-  // Feature: Recipient Phone Number — group spacing is inserted
-  // automatically by applyPhoneMask below based on each country's format,
-  // so a manually typed space is never meaningful here. Blocking it
-  // outright (rather than stripping it after the fact) avoids the caret
-  // jumping around when the mask rewrites the field's value mid-type.
-  if (e.key === ' ') {
-    e.preventDefault();
+.modal-message {
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  margin: 0 0 32px;
+}
+
+.modal-message strong {
+  color: var(--text);
+  font-weight: 600;
+  font-family: var(--font-mono);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.modal-btn {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 14px;
+  border-radius: 8px;
+  padding: 10px 22px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: transform 0.1s ease, background 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.2s ease;
+}
+
+.modal-btn-secondary {
+  background: transparent;
+  border-color: rgba(15, 113, 240, 0.5);
+  color: var(--accent);
+}
+
+.modal-btn-secondary:hover {
+  background: rgba(15, 113, 240, 0.12);
+  border-color: var(--accent);
+}
+
+.modal-btn-primary {
+  background: var(--accent);
+  color: #06120f;
+}
+
+/* Same language as #submitBtn: hover stays on-hue and communicates via a
+   soft glow + lift instead of swapping to an off-palette color. */
+.modal-btn-primary:hover {
+  box-shadow:
+    0 0 0 4px rgba(15, 113, 240, 0.16),
+    0 10px 22px -8px rgba(15, 113, 240, 0.5);
+  transform: translateY(-1px);
+}
+
+.modal-btn:active {
+  transform: scale(0.97);
+}
+
+body.modal-open {
+  overflow: hidden;
+}
+
+.confirm-box {
+  text-align: center;
+}
+
+.confirm-title {
+  margin-bottom: 20px;
+}
+
+.confirm-amount-box {
+  padding: 8px 0 28px;
+  margin: 0 0 8px;
+}
+
+.confirm-amount-eyebrow {
+  display: block;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.confirm-amount {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+
+.confirm-amount-divider {
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  margin: 24px 0 0;
+}
+
+.confirm-details-box {
+  background: rgba(6, 12, 20, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 6px 18px;
+  margin: 0 0 24px;
+  text-align: left;
+}
+
+.confirm-detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  font-size: 14px;
+}
+
+.confirm-detail-row + .confirm-detail-row {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.confirm-detail-label {
+  color: var(--text-muted);
+}
+
+.confirm-detail-value {
+  color: var(--text);
+  font-weight: 600;
+  font-family: var(--font-mono);
+  text-align: right;
+}
+
+.confirm-actions {
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 0;
+}
+
+.confirm-btn {
+  width: 100%;
+  padding: 13px;
+  font-size: 14px;
+  border-radius: 999px;
+}
+
+/* Feature: Payment sent confirmation — success panel inserted directly
+   under the sender/recipient form (.hub-panel), replacing the old
+   "Settled" station card feedback. */
+
+.success-panel {
+  margin-top: 24px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  padding: 22px 24px;
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  transform: translateY(6px);
+  animation: reveal 0.4s ease forwards;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.success-panel:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md-hover);
+}
+
+.success-panel[hidden] {
+  display: none;
+}
+
+.success-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.success-panel-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(69, 212, 131, 0.15);
+  color: var(--success);
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.success-panel-header h3 {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+  margin: 0;
+  flex: 1;
+}
+
+.success-panel-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+
+.success-panel-close:hover {
+  color: var(--text);
+}
+
+.success-panel-eyebrow {
+  font-family: var(--font-body);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 0 0 6px;
+}
+
+.success-panel-amount {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 26px;
+  letter-spacing: -0.015em;
+  color: var(--text);
+  margin: 0 0 18px;
+}
+
+.success-panel-body p {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  margin: 0;
+  padding: 9px 0;
+  color: var(--text);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.success-panel-body .label {
+  color: var(--text-muted);
+  font-weight: 400;
+  margin-right: 0;
+}
+
+.success-panel-mono {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  letter-spacing: 0.02em;
+}
+
+.success-panel-actions {
+  margin-top: 4px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Quieter than #submitBtn on purpose — the money's already sent, this is
+   a follow-up action, not the primary call to action. */
+.success-panel-download-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  padding: 9px 14px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.success-panel-download-btn:hover:not(:disabled) {
+  border-color: var(--amber);
+  color: var(--amber);
+  background: rgba(242, 169, 59, 0.08);
+}
+
+.success-panel-download-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.success-panel-download-btn svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+/* Payment trace — a fluid segmented pill progress bar living inside the
+   hub-panel form directly under the submit row. Replaces the old SVG rail
+   line; the gradient fill sweeps left-to-right and each step's dot fills
+   in with a checkmark as it completes. */
+
+.progress-row {
+  grid-column: 1 / -1;
+  margin-top: 24px;
+  background: #101d30;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 26px 24px 20px;
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  transform: translateY(8px);
+  animation: reveal 0.4s ease forwards;
+}
+
+.progress-row[hidden] {
+  display: none;
+  opacity: 0;
+  transform: none;
+  animation: none;
+}
+
+.progress-track {
+  position: relative;
+  height: 34px;
+  border-radius: 999px;
+  background: var(--panel-border);
+  overflow: hidden;
+}
+
+.progress-fill {
+  position: absolute;
+  inset: 0;
+  width: 0%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 0.6s ease;
+}
+
+.progress-fill.blocked {
+  background: var(--danger);
+}
+
+.progress-dots {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  z-index: 2;
+}
+
+.progress-dot-slot {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.progress-dot {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #0e1826;
+  border: 2px solid var(--panel-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.3s ease, border-color 0.3s ease, transform 0.3s ease;
+}
+
+.progress-dot-check {
+  font-size: 12px;
+  font-weight: 700;
+  color: transparent;
+  transition: color 0.2s ease;
+}
+
+.progress-dot.done {
+  background: var(--accent);
+  border-color: var(--accent);
+  transform: scale(1.08);
+}
+
+.progress-dot.done .progress-dot-check {
+  color: #ffffff;
+}
+
+.progress-dot.blocked {
+  background: var(--danger);
+  border-color: var(--danger);
+}
+
+.progress-dot.blocked .progress-dot-check {
+  color: #ffffff;
+}
+
+.progress-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 12px;
+}
+
+.progress-label {
+  flex: 1;
+  text-align: center;
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 11px;
+  color: var(--text-muted);
+  transition: color 0.3s ease;
+}
+
+.progress-label.done,
+.progress-label.blocked {
+  color: var(--text);
+}
+
+@keyframes reveal {
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
-});
-
-recipientPhoneInput.addEventListener('input', () => {
-  applyPhoneMask();
-
-  // No validation here — the format hint underneath already shows the
-  // expected pattern, and switching to a red error mid-keystroke felt
-  // premature. Real validation runs on blur and on submit instead.
-  debouncedUpdateRecipientPreview();
-});
-
-recipientPhoneInput.addEventListener('blur', () => {
-  validateRecipientPhone();
-  updateRecipientPreview();
-});
-
-// ---------- Feature: Processing flow ----------
-// Builds the button label + live status-line text for each of the five
-// stations, from the SAME response payload the progress bar itself is
-// choreographing through. Because /api/payment already returns compliance,
-// recipient, fx, and message data in one round trip, every step's text
-// describes the real, resolved outcome for that step — not a placeholder
-// guess — even though the reveal is paced client-side for legibility.
-function buildStepMeta(data, summary) {
-  const recipient = data.recipient || {};
-  const fx = data.fx || {};
-  const message = data.message || {};
-  const grpHdr = message.GrpHdr || {};
-  const rail = RAIL_NAMES[summary.recipientCountryCode] || 'the local rail';
-  const accountTail = recipient.accountId ? recipient.accountId.slice(-4) : '----';
-  const rate = fx.rate ? formatRate(fx.rate) : '—';
-
-  return [
-    {
-      button: 'Screening compliance…',
-      status: `Screening ${summary.senderName || 'sender'} against AML / CFT watchlists…`,
-    },
-    {
-      button: 'Resolving proxy…',
-      status: `Resolved to ${recipient.bankName || 'recipient bank'} •••${accountTail} via ${rail}.`,
-    },
-    {
-      button: 'Converting FX…',
-      status: `Converting ${fx.fromCurrency || summary.senderCurrency} → ${fx.toCurrency || ''} at 1 ${fx.fromCurrency || ''} = ${rate} ${fx.toCurrency || ''}.`,
-    },
-    {
-      button: 'Translating message…',
-      status: `Building ISO 20022 pacs.008 (${grpHdr.MsgId || 'message'}) for ${rail} settlement…`,
-    },
-    {
-      button: 'Settling…',
-      status: `Confirming settlement via ${rail} Nexus gateway…`,
-    },
-  ];
 }
 
-// ---------- Submit ----------
+/* Mobile */
 
-form.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  submitHint.textContent = '';
-  submitHint.classList.remove('error', 'is-status');
-
-  if (!validateRecipientPhone()) {
-    submitHint.textContent = 'Fix the recipient phone number before sending.';
-    submitHint.classList.add('error');
-    recipientPhoneInput.focus();
-    return;
+@media (max-width: 720px) {
+  .page-layout {
+    grid-template-columns: 1fr;
   }
 
-  const rawAmount = getRawAmountValue();
-  if (!rawAmount || rawAmount <= 0) {
-    submitHint.textContent = 'Enter a valid amount before sending.';
-    submitHint.classList.add('error');
-    amountInput.focus();
-    return;
+  .hub-panel {
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
+    row-gap: 24px;
   }
 
-  // Feature: Send confirmation — gate the actual request behind an explicit
-  // Send/Cancel so a mistyped digit doesn't move money before the sender
-  // has a chance to double-check who it's going to.
-  const senderCountry = getCountryObj(senderCountrySelect.value);
-  const recipientCountry = getCountryObj(recipientCountrySelect.value);
-  const senderAmountText = formatCurrency(rawAmount, senderCountry ? senderCountry.currency : '');
-  const recipientAmountText = convertedAmountInput.value || senderAmountText;
-  const recipientNameForConfirm = recipientPreviewName.textContent || 'the recipient';
-  const countryNameForConfirm = recipientCountry ? recipientCountry.name : recipientCountrySelect.value;
-
-  const confirmed = await showConfirmModal({
-    recipientName: recipientNameForConfirm,
-    countryName: countryNameForConfirm,
-    currencyCode: recipientCountry ? recipientCountry.currency : '',
-    amountText: recipientAmountText,
-  });
-
-  if (!confirmed) {
-    submitHint.textContent = 'Payment cancelled.';
-    return;
+  .hub-column {
+    grid-template-rows: none;
+    grid-row: auto;
+    row-gap: 18px;
   }
 
-  pendingPaymentSummary = {
-    recipientName: recipientNameForConfirm,
-    countryName: countryNameForConfirm,
-    amountText: recipientAmountText,
-    senderName: document.getElementById('senderName').value,
-    senderCountryCode: senderCountrySelect.value,
-    senderCountryName: senderCountry ? senderCountry.name : senderCountrySelect.value,
-    senderBankName: senderBankSelect.value,
-    senderCurrency: senderCountry ? senderCountry.currency : '',
-    senderAmountText,
-    senderAmountRaw: rawAmount,
-    recipientCountryCode: recipientCountrySelect.value,
-    // Feature: Receipt — "processing time" on the receipt is measured from
-    // here (when the sender's request actually starts going out), not from
-    // when Send was first clicked, so it doesn't include time spent on the
-    // confirm modal.
-    requestStartedAt: performance.now(),
-  };
-
-  submitBtn.disabled = true;
-  // Feature: Processing flow — spinner + label now live inside the button
-  // together (see index.html / style.css), instead of the old plain
-  // submitBtn.textContent swap with no motion.
-  submitBtn.classList.remove('is-settled');
-  submitBtn.classList.add('is-loading');
-  submitBtnLabel.textContent = 'Sending…';
-
-  resetTrace();
-
-  const payload = {
-    senderName: document.getElementById('senderName').value,
-    senderCountry: senderCountrySelect.value,
-    senderBank: senderBankSelect.value,
-    amount: rawAmount,
-    recipientCountry: recipientCountrySelect.value,
-    recipientPhone: recipientPhoneInput.value.trim(),
-  };
-
-  try {
-    const res = await fetch('/api/payment', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json();
-
-    if (data.status === 'BLOCKED') {
-      await runBlockedTrace(data);
-    } else if (data.status === 'COMPLETED') {
-      await runCompletedTrace(data);
-    } else {
-      submitHint.textContent = data.error || 'Payment could not be processed.';
-      submitHint.classList.add('error');
-    }
-  } catch (err) {
-    submitHint.textContent = 'Request failed. Is the server running?';
-    submitHint.classList.add('error');
+  .hub-divider {
+    grid-row: auto;
+    flex-direction: row;
+    padding: 8px 0;
   }
 
-  submitBtn.disabled = false;
-  submitBtn.classList.remove('is-loading', 'is-settled');
-  submitBtnLabel.textContent = 'Send payment';
-});
-
-function resetTrace() {
-  trace.hidden = false;
-  hideSuccessPanel();
-  progressFill.style.width = '0%';
-  progressFill.classList.remove('blocked');
-  document.querySelectorAll('.progress-dot').forEach((s) => s.classList.remove('done', 'blocked'));
-  document.querySelectorAll('.progress-label').forEach((s) => s.classList.remove('done', 'blocked'));
-}
-
-function wait(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function lightStation(index, blocked = false) {
-  const statusClass = blocked ? 'blocked' : 'done';
-  document.querySelector(`.progress-dot[data-station="${index}"]`).classList.add(statusClass);
-  document.querySelector(`.progress-label[data-station="${index}"]`).classList.add(statusClass);
-  progressFill.style.width = `${(index / (STATION_LABELS.length - 1)) * 80}%`;
-  if (blocked) progressFill.classList.add('blocked');
-}
-
-// Feature: Processing flow — advances the progress dot AND updates the
-// button label + status line in the same call, so the three pieces can
-// never show three different steps at once (the original bug: the button
-// said "Sending…" the entire time while the dots moved independently).
-function applyStep(index, stepMeta) {
-  lightStation(index);
-  if (!stepMeta) return;
-  submitBtnLabel.textContent = stepMeta[index].button;
-  submitHint.textContent = stepMeta[index].status;
-  submitHint.classList.remove('error');
-  submitHint.classList.add('is-status');
-}
-
-async function runBlockedTrace(data) {
-  await wait(200);
-  lightStation(0, true);
-
-  submitBtn.classList.remove('is-loading');
-  submitBtnLabel.textContent = 'Blocked';
-  submitHint.classList.remove('is-status');
-
-  const reason = data.compliance?.reason || data.reason || 'Sender failed sanctions screening.';
-  submitHint.textContent = `Payment blocked at compliance screening — ${reason}`;
-  submitHint.classList.add('error');
-}
-
-async function runCompletedTrace(data) {
-  const stepMeta = pendingPaymentSummary ? buildStepMeta(data, pendingPaymentSummary) : null;
-
-  await wait(200);
-  applyStep(0, stepMeta);
-
-  await wait(500);
-  applyStep(1, stepMeta);
-
-  await wait(500);
-  applyStep(2, stepMeta);
-
-  await wait(500);
-  applyStep(3, stepMeta);
-
-  await wait(500);
-  applyStep(4, stepMeta);
-
-  // Feature: Processing flow — the "Settled" dot's fill (0.3s) and the
-  // progress bar's own width transition (0.6s, see #progressFill in
-  // style.css) are still animating the instant applyStep(4) returns.
-  // Waiting out the longer of the two before revealing the success panel
-  // is the actual fix for the "gray circle next to a finished payment"
-  // bug — the class was always applied in time, the paint just wasn't.
-  await wait(650);
-
-  submitBtn.classList.remove('is-loading');
-  submitBtn.classList.add('is-settled');
-  submitBtnLabel.textContent = 'Payment sent';
-  submitHint.classList.remove('is-status');
-  submitHint.textContent = '';
-
-  if (pendingPaymentSummary) {
-    const msg = data.message || {};
-    const grpHdr = msg.GrpHdr || {};
-    const txInf = msg.CdtTrfTxInf || {};
-    const recipient = data.recipient || {};
-    const fx = data.fx || {};
-
-    const elapsedSeconds =
-      (performance.now() - (pendingPaymentSummary.requestStartedAt || performance.now())) / 1000;
-
-    const receiptData = {
-      ...pendingPaymentSummary,
-      recipientBankName: recipient.bankName || txInf.CdtrAgt?.FinInstnId?.Nm || '',
-      recipientAccountId: recipient.accountId || txInf.CdtrAcct?.Id || '',
-      msgId: grpHdr.MsgId || '',
-      createdAt: grpHdr.CreDtTm || new Date().toISOString(),
-      exchangeRate: fx.rate ?? txInf.XchgRateInf?.XchgRate ?? null,
-      fromCurrency: fx.fromCurrency || pendingPaymentSummary.senderCurrency,
-      toCurrency: fx.toCurrency || '',
-      recipientAmountRaw: Number.isFinite(fx.convertedAmount) ? fx.convertedAmount : null,
-      processingSeconds: elapsedSeconds,
-    };
-
-    showSuccessPanel(receiptData);
-    pendingPaymentSummary = null;
+  .submit-row {
+    grid-row: auto;
   }
 
-  resetForm();
+  .hub-line {
+    width: auto;
+    height: 1px;
+    flex: 1;
+    margin: 0 8px;
+  }
+
+  .page-header {
+    padding-top: 90px;
+  }
+
+  .page-header h1 {
+    font-size: 30px;
+  }
+
+  .progress-label {
+    font-size: 9px;
+  }
+
+  .progress-track {
+    height: 28px;
+  }
+
+  .progress-dot {
+    width: 22px;
+    height: 22px;
+  }
+
+  .modal-box {
+    padding: 22px;
+  }
+
+  .confirm-amount {
+    font-size: 24px;
+  }
+
+  .confirm-detail-value {
+    font-size: 13px;
+  }
 }
 
-// Feature: Payment sent confirmation — once the money's on its way, clear
-// every field so the form is ready for the next payment rather than
-// leaving the last recipient's details sitting on screen.
-function resetForm() {
-  document.getElementById('senderName').value = '';
-  senderCountryDropdown.reset('Select country');
-  senderCurrencyPrefix.textContent = '—';
-  senderBankDropdown.reset('Select country first');
-  senderBankDropdown.setDisabled(true);
+@media (prefers-reduced-motion: reduce) {
+  .progress-fill,
+  .progress-dot,
+  .progress-label,
+  .success-panel,
+  .recipient-preview,
+  .progress-row,
+  .confirm-amount-box,
+  .modal-overlay,
+  .modal-box,
+  .custom-select-list,
+  #submitBtn,
+  .modal-btn-primary {
+    transition: none;
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
 
-  amountInput.value = '';
-  fxRateLine.hidden = true;
-  fxRateLine.textContent = '';
-  convertedAmountWrapper.hidden = true;
-  convertedAmountInput.value = '';
+  #submitBtn:hover:not(:disabled),
+  #submitBtn:active:not(:disabled),
+  .modal-btn-primary:hover,
+  .modal-btn:active {
+    transform: none;
+  }
+}
 
-  recipientCountryDropdown.reset('Select country');
-  recipientPhoneInput.value = '';
-  recipientPhoneInput.disabled = true;
-  recipientPhoneInput.placeholder = 'Select country first';
-  clearPhoneHint();
-  hideRecipientPreview();
+/* ============================================================
+   Feature: Glass Halo background
+   Purely additive — does not modify .hub-panel, .field, or any
+   existing rule above. Safe to append to the end of style.css.
+   ============================================================ */
+
+.halo-glow {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.halo-glow::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 78vw;
+  height: 78vw;
+  max-width: 1040px;
+  max-height: 1040px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(15, 113, 240, 0.4) 0%, rgba(124, 92, 255, 0.22) 42%, transparent 70%);
+  filter: blur(56px);
+  animation: haloPulse 8s ease-in-out infinite;
+}
+
+@keyframes haloPulse {
+  0%, 100% { opacity: 0.7; transform: translate(-50%, -50%) scale(1); }
+  50% { opacity: 0.85; transform: translate(-50%, -50%) scale(1.03); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .halo-glow::before {
+    animation: none;
+  }
+}
+
+/* Optional: fine grain texture, purely cosmetic polish, safe to omit */
+.grain-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.045;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ============================================================
+   Feature: FX ticker + corridor map (side card)
+   Purely additive — new selectors only, nothing above is touched.
+   Reuses the existing tokens (--panel, --panel-border, --text,
+   --text-muted, --accent, --amber, --font-mono, --font-body,
+   --font-display) instead of introducing new ones, and matches the
+   .column-label / .field typography already used in the hub-panel.
+   ============================================================ */
+
+.side-card {
+  grid-column: 2;
+  grid-row: 1;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  padding: 20px 20px 24px;
+  margin-top: 8px;
+}
+
+/* ---------- FX ticker ---------- */
+
+.fx-ticker {
+  background: #0e1826;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  padding: 16px 16px 6px;
+  margin-bottom: 16px;
+}
+
+.fx-ticker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.fx-ticker-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.fx-live-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.fx-base-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.fx-base-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(15, 113, 240, 0.1);
+  border: 1px solid rgba(15, 113, 240, 0.25);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  padding: 5px 10px;
+  border-radius: 20px;
+  margin-bottom: 12px;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.fx-base-chip b {
+  color: var(--text);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.fx-base-chip.is-set {
+  background: rgba(15, 113, 240, 0.16);
+  border-color: rgba(15, 113, 240, 0.4);
+}
+
+.fx-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.045);
+  font-size: 12.5px;
+}
+
+.fx-row:first-of-type {
+  border-top: none;
+}
+
+.fx-row-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fx-rank {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-muted);
+  width: 12px;
+}
+
+.fx-row.best .fx-rank {
+  color: var(--success);
+}
+
+.fx-row-flag {
+  width: 21px;
+  height: auto;
+  border-radius: 2px;
+}
+
+.fx-row-ccy {
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 12.5px;
+  letter-spacing: 0.02em;
+  color: var(--text);
+}
+
+.fx-row-right {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.fx-row-value {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 13.5px;
+  color: var(--text);
+}
+
+.fx-row-delta {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+}
+
+.fx-row-delta.up {
+  color: var(--success);
+}
+
+.fx-row-delta.down {
+  color: var(--danger);
+}
+
+.fx-row.is-recipient {
+  background: linear-gradient(90deg, rgba(242, 169, 59, 0.09), transparent);
+  border-radius: 6px;
+  padding-left: 6px;
+  padding-right: 6px;
+  margin: 0 -6px;
+}
+
+.fx-ticker-empty {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--text-muted);
+  padding: 10px 0;
+}
+
+/* ---------- Corridor map ---------- */
+
+.map-stage {
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 16px;
+  background: radial-gradient(ellipse 75% 60% at 50% 38%, #0f1c2e 0%, #0a1420 65%, #08111c 100%);
+  border: 1px solid rgba(255, 255, 255, 0.055);
+}
+
+.map-stage::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.55);
+}
+
+svg.sea-map {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.country-line {
+  fill: none;
+  stroke: #3a5578;
+  stroke-width: 1;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  transition: stroke 0.35s ease, stroke-width 0.35s ease;
+}
+
+.country-glow {
+  fill: none;
+  stroke: #3a5578;
+  stroke-width: 3.2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  opacity: 0.16;
+  filter: blur(2.6px);
+  transition: stroke 0.35s ease, opacity 0.35s ease;
+}
+
+.country-hit {
+  fill: rgba(0, 0, 0, 0);
+  stroke: transparent;
+  stroke-width: 14;
+  cursor: pointer;
+}
+
+.country-piece:hover .country-line {
+  stroke: #7f9bc2;
+}
+
+.country-piece:hover .country-glow {
+  opacity: 0.28;
+}
+
+.country-piece.is-sender .country-line {
+  stroke: var(--accent);
+  stroke-width: 1.4;
+}
+
+.country-piece.is-sender .country-glow {
+  stroke: var(--accent);
+  opacity: 0.85;
+  stroke-width: 5;
+}
+
+.country-piece.is-recipient .country-line {
+  stroke: var(--amber);
+  stroke-width: 1.4;
+}
+
+.country-piece.is-recipient .country-glow {
+  stroke: var(--amber);
+  opacity: 0.85;
+  stroke-width: 5;
+}
+
+.country-label {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  fill: var(--text-muted);
+  text-anchor: middle;
+  letter-spacing: 0.06em;
+  pointer-events: none;
+  transition: fill 0.3s ease, opacity 0.3s ease;
+}
+
+.country-piece.is-sender .country-label {
+  fill: var(--accent);
+  opacity: 0;
+}
+
+.country-piece.is-recipient .country-label {
+  fill: var(--amber);
+  opacity: 0;
+}
+
+.sg-dot {
+  fill: #3a5578;
+  transition: fill 0.35s ease;
+}
+
+.sg-dot-glow {
+  fill: #3a5578;
+  opacity: 0.3;
+  filter: blur(3px);
+  transition: fill 0.35s ease, opacity 0.35s ease;
+}
+
+.sg-marker:hover .sg-dot {
+  fill: #7f9bc2;
+}
+
+.sg-marker.is-sender .sg-dot {
+  fill: var(--accent);
+}
+
+.sg-marker.is-sender .sg-dot-glow {
+  fill: var(--accent);
+  opacity: 0.9;
+}
+
+.sg-marker.is-recipient .sg-dot {
+  fill: var(--amber);
+}
+
+.sg-marker.is-recipient .sg-dot-glow {
+  fill: var(--amber);
+  opacity: 0.9;
+}
+
+.sg-hit {
+  fill: rgba(0, 0, 0, 0);
+  cursor: pointer;
+}
+
+.flag-badge {
+  opacity: 0;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  transform: translateY(3px);
+  pointer-events: none;
+}
+
+.flag-badge.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.flag-badge-bg {
+  fill: #0e1826;
+  stroke: rgba(255, 255, 255, 0.14);
+  stroke-width: 1;
+}
+
+.flag-badge-name {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  fill: var(--text);
+  letter-spacing: 0.03em;
+}
+
+.connector-line {
+  fill: none;
+  stroke: url(#nexusConnectorGrad);
+  stroke-width: 1.6;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  filter: drop-shadow(0 0 3px rgba(15, 113, 240, 0.5));
+}
+
+.connector-line.show {
+  opacity: 0.9;
+}
+
+.connector-pulse {
+  fill: none;
+  stroke: url(#nexusConnectorGrad);
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  opacity: 0;
+}
+
+.connector-pulse.show {
+  opacity: 0.95;
+}
+
+/* ---------- Route summary card ---------- */
+
+.route-card {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  background: #0e1826;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.route-card.show {
+  display: flex;
+}
+
+.route-side {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.route-side img {
+  width: 24px;
+  height: auto;
+  border-radius: 3px;
+}
+
+.route-side .rs-country {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.route-side .rs-rail {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
+.route-chevron {
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+}
+
+.route-chevron svg {
+  width: 14px;
+  height: 14px;
+}
+
+@media (max-width: 720px) {
+  .side-card {
+    margin-top: 0;
+  }
+}
+
+/* ============================================================
+   Feature: Processing flow — button + progress bar unification
+   Purely additive — does not modify #submitBtn, .submit-hint, or
+   any existing rule above. Appended at the end of style.css.
+   ============================================================ */
+
+#submitBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(6, 18, 15, 0.35);
+  border-top-color: #06120f;
+  display: none;
+  flex-shrink: 0;
+  animation: btnSpin 0.7s linear infinite;
+}
+
+#submitBtn.is-loading .btn-spinner {
+  display: inline-block;
+}
+
+@keyframes btnSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* Settled state reuses the existing --success token rather than
+   introducing a new color, and keeps the same 3D-press ridge shadow
+   language as the default #submitBtn state. */
+#submitBtn.is-settled {
+  background: var(--success);
+  box-shadow: 0 3px 0 #1f8a5c;
+}
+
+/* Feature: Processing flow — live per-step status line under the button.
+   Reuses the existing .submit-hint element (no new DOM node) so the
+   microcopy sits exactly where the audit asked for it. Brighter than the
+   default muted hint text since it's live status, not a passive caption;
+   .error still overrides this when a payment is blocked. */
+.submit-hint.is-status {
+  color: var(--text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-spinner {
+    animation: none;
+  }
+}
+
+/* ============================================================
+   Feature: Processing flow — visual restyle (round 2, per review)
+   Two changes, both overriding rules already defined above by
+   source order (same selectors, same specificity) — no DOM or JS
+   change needed, same markup/classes app.js already drives:
+
+   1. Submit row stacks (button, then status line below it) instead
+      of sitting side by side.
+   2. Progress bar swaps the solid pill track for a thin connecting
+      line + glowing circular nodes, matching the approved prototype
+      direction — lighter and closer to the "glowing outlines"
+      premium-fintech reference than a filled bar.
+   ============================================================ */
+
+.submit-row {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.progress-track {
+  height: 26px;
+  border-radius: 0;
+  background: none;
+  overflow: visible;
+}
+
+.progress-track::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 10%;
+  right: 10%;
+  height: 2px;
+  background: var(--panel-border);
+  transform: translateY(-50%);
+  z-index: 0;
+}
+
+.progress-fill {
+  top: 50%;
+  bottom: auto;
+  left: 10%;
+  right: auto;
+  height: 2px;
+  transform: translateY(-50%);
+  background: linear-gradient(90deg, var(--accent), var(--success));
+  /* width is set inline by app.js as
+     `${(index / (STATION_LABELS.length - 1)) * 80}%` — the 80% span
+     matches the 10%–90% gap above, so the fill's right edge lands
+     exactly on each dot's true center (dots sit at 10/30/50/70/90%,
+     since each is centered in its own 1/5-wide flex slot). */
+}
+
+.progress-fill.blocked {
+  background: var(--danger);
+}
+
+.progress-dot {
+  box-shadow: none;
+  transition: background 0.3s ease, border-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.progress-dot.done {
+  box-shadow: 0 0 0 5px rgba(15, 113, 240, 0.18);
+}
+
+.progress-dot.blocked {
+  box-shadow: 0 0 0 5px rgba(242, 89, 107, 0.18);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress-dot {
+    transition: none;
+  }
+}
+
+/* ============================================================
+   Feature: Processing flow — status line restyle (round 3, per
+   review). Same #submitHint element and classes app.js already
+   drives (.is-status / .error) — no DOM or JS change. Turns the
+   bare sentence into a small status chip: body font instead of
+   mono (this is a status sentence, not a data value, so it
+   follows the Inter/body half of the existing two-font system,
+   not the Plex Mono half reserved for amounts/rates), a pill
+   container so it reads as a status indicator rather than a log
+   line, and a colored dot that pulses only while live (.is-status)
+   and holds solid on error. :empty collapses it back to zero
+   space for the idle state, same as the plain-text version did.
+   ============================================================ */
+
+.submit-hint {
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 12.5px;
+  line-height: 1;
+  color: var(--text-muted);
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px 7px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--panel-border);
+}
+
+.submit-hint:empty {
+  display: none;
+  padding: 0;
+  border: none;
+  background: none;
+}
+
+.submit-hint::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.submit-hint.is-status {
+  color: var(--text);
+  background: rgba(15, 113, 240, 0.08);
+  border-color: rgba(15, 113, 240, 0.25);
+}
+
+.submit-hint.is-status::before {
+  background: var(--accent);
+  animation: hint-pulse 1.4s ease-in-out infinite;
+}
+
+.submit-hint.error {
+  color: var(--danger);
+  background: rgba(242, 89, 107, 0.08);
+  border-color: rgba(242, 89, 107, 0.25);
+}
+
+.submit-hint.error::before {
+  background: var(--danger);
+  animation: none;
+}
+
+@keyframes hint-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.75);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .submit-hint.is-status::before {
+    animation: none;
+  }
 }
