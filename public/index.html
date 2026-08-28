@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="style.css?v=15" />
+<link rel="stylesheet" href="style.css?v=16" />
 </head>
 <body>
 
@@ -131,7 +131,16 @@
       </div>
 
       <div class="submit-row">
-        <button type="submit" id="submitBtn">Send payment</button>
+        <!--
+          Feature: Processing flow — submitBtn now wraps a spinner span and
+          a dedicated label span instead of relying on submitBtn.textContent.
+          app.js toggles #submitBtn's is-loading/is-settled classes and
+          writes to #submitBtnLabel; nothing else about this row changed.
+        -->
+        <button type="submit" id="submitBtn">
+          <span class="btn-spinner" aria-hidden="true"></span>
+          <span id="submitBtnLabel">Send payment</span>
+        </button>
         <p class="submit-hint" id="submitHint"></p>
       </div>
 
