@@ -1683,3 +1683,57 @@ svg.sea-map {
     margin-top: 0;
   }
 }
+
+/* ============================================================
+   Feature: Processing flow — button + progress bar unification
+   Purely additive — does not modify #submitBtn, .submit-hint, or
+   any existing rule above. Appended at the end of style.css.
+   ============================================================ */
+
+#submitBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(6, 18, 15, 0.35);
+  border-top-color: #06120f;
+  display: none;
+  flex-shrink: 0;
+  animation: btnSpin 0.7s linear infinite;
+}
+
+#submitBtn.is-loading .btn-spinner {
+  display: inline-block;
+}
+
+@keyframes btnSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* Settled state reuses the existing --success token rather than
+   introducing a new color, and keeps the same 3D-press ridge shadow
+   language as the default #submitBtn state. */
+#submitBtn.is-settled {
+  background: var(--success);
+  box-shadow: 0 3px 0 #1f8a5c;
+}
+
+/* Feature: Processing flow — live per-step status line under the button.
+   Reuses the existing .submit-hint element (no new DOM node) so the
+   microcopy sits exactly where the audit asked for it. Brighter than the
+   default muted hint text since it's live status, not a passive caption;
+   .error still overrides this when a payment is blocked. */
+.submit-hint.is-status {
+  color: var(--text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-spinner {
+    animation: none;
+  }
+}
