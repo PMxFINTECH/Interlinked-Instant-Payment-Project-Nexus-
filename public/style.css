@@ -159,7 +159,7 @@ main {
 .field input,
 .field select {
   font-family: var(--font-mono);
-  font-size: 14px;
+  font-size: 16px;
   color: var(--text);
   background: #0e1826;
   border: 1px solid var(--panel-border);
@@ -1147,6 +1147,11 @@ body.modal-open {
     height: 1px;
     flex: 1;
     margin: 0 8px;
+  }
+
+  header.page-header,
+  main {
+    padding: 0 20px;
   }
 
   .page-header {
