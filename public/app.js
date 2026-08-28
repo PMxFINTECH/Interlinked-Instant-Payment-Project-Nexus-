@@ -1541,12 +1541,18 @@ function lightStation(index, blocked = false) {
   if (blocked) progressFill.classList.add('blocked');
 }
 
-// Feature: Processing flow — advances the progress dot AND updates the
-// button label + status line in the same call, so the three pieces can
-// never show three different steps at once (the original bug: the button
-// said "Sending…" the entire time while the dots moved independently).
-function applyStep(index, stepMeta) {
-  lightStation(index);
+// Feature: Processing flow — updates ONLY the button label + status line for
+// the given station. Deliberately does not touch the progress dot: the dot
+// for a station is lit via lightStation() separately, once that station's
+// window has actually elapsed (see runCompletedTrace) — not the moment its
+// text first appears. Splitting these was the fix for a sync bug where the
+// "Settled" dot showed a checkmark for ~650ms while the button still read
+// "Settling…": lightStation(4) and the button label used to be set in the
+// same call, so the dot always visually finished before the button (and the
+// success panel) actually did. Same principle applies to every station, not
+// just the last one — a dot should mean "this step is done", not "this step
+// has started".
+function showStepText(index, stepMeta) {
   if (!stepMeta) return;
   submitBtnLabel.textContent = stepMeta[index].button;
   submitHint.textContent = stepMeta[index].status;
@@ -1570,28 +1576,36 @@ async function runBlockedTrace(data) {
 async function runCompletedTrace(data) {
   const stepMeta = pendingPaymentSummary ? buildStepMeta(data, pendingPaymentSummary) : null;
 
+  // Each station's dot is lit only once its window is over — right as the
+  // button/status text move on to describe the next station (or, for the
+  // last station, right before the button flips to "Payment sent"). This
+  // keeps the checkmarks, the button label, and the status line always in
+  // agreement about which step is actually finished.
   await wait(200);
-  applyStep(0, stepMeta);
+  showStepText(0, stepMeta);
 
   await wait(500);
-  applyStep(1, stepMeta);
+  lightStation(0);
+  showStepText(1, stepMeta);
 
   await wait(500);
-  applyStep(2, stepMeta);
+  lightStation(1);
+  showStepText(2, stepMeta);
 
   await wait(500);
-  applyStep(3, stepMeta);
+  lightStation(2);
+  showStepText(3, stepMeta);
 
   await wait(500);
-  applyStep(4, stepMeta);
+  lightStation(3);
+  showStepText(4, stepMeta);
 
-  // Feature: Processing flow — the "Settled" dot's fill (0.3s) and the
-  // progress bar's own width transition (0.6s, see #progressFill in
-  // style.css) are still animating the instant applyStep(4) returns.
-  // Waiting out the longer of the two before revealing the success panel
-  // is the actual fix for the "gray circle next to a finished payment"
-  // bug — the class was always applied in time, the paint just wasn't.
+  // This wait is the actual settlement beat: the button and status line
+  // still read "Settling…" / "Confirming settlement…" for its duration,
+  // and only at the end does the Settled dot light up and the button flip
+  // to "Payment sent" — in the same breath, so they can't drift apart.
   await wait(650);
+  lightStation(4);
 
   submitBtn.classList.remove('is-loading');
   submitBtn.classList.add('is-settled');
