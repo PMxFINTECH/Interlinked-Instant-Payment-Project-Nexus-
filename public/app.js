@@ -708,16 +708,18 @@ function setupCountryDropdown(containerId, selectEl) {
     trigger.setAttribute('aria-expanded', 'false');
   }
 
-  function open() {
+  function open(focusItem = false) {
     list.hidden = false;
     requestAnimationFrame(() => list.classList.add('is-open'));
     trigger.setAttribute('aria-expanded', 'true');
-    const active = list.querySelector('[aria-selected="true"]') || list.querySelector('li');
-    if (active) active.focus();
+    if (focusItem) {
+      const active = list.querySelector('[aria-selected="true"]') || list.querySelector('li');
+      if (active) active.focus({ preventScroll: true });
+    }
   }
 
   function toggle() {
-    if (!list.classList.contains('is-open')) open();
+    if (!list.classList.contains('is-open')) open(false);
     else close();
   }
 
@@ -730,7 +732,7 @@ function setupCountryDropdown(containerId, selectEl) {
       li.setAttribute('aria-selected', li.dataset.code === country.code ? 'true' : 'false');
     });
     close();
-    trigger.focus();
+    trigger.focus({ preventScroll: true });
     selectEl.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
@@ -770,7 +772,7 @@ function setupCountryDropdown(containerId, selectEl) {
           if (li.previousElementSibling) li.previousElementSibling.focus();
         } else if (e.key === 'Escape') {
           close();
-          trigger.focus();
+          trigger.focus({ preventScroll: true });
         }
       });
 
@@ -782,7 +784,7 @@ function setupCountryDropdown(containerId, selectEl) {
   trigger.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      open();
+      open(true);
     } else if (e.key === 'Escape') {
       close();
     }
@@ -896,17 +898,19 @@ function setupBankDropdown(containerId, selectEl) {
     trigger.setAttribute('aria-expanded', 'false');
   }
 
-  function open() {
+  function open(focusItem = false) {
     if (trigger.disabled) return;
     list.hidden = false;
     requestAnimationFrame(() => list.classList.add('is-open'));
     trigger.setAttribute('aria-expanded', 'true');
-    const active = list.querySelector('[aria-selected="true"]') || list.querySelector('li');
-    if (active) active.focus();
+    if (focusItem) {
+      const active = list.querySelector('[aria-selected="true"]') || list.querySelector('li');
+      if (active) active.focus({ preventScroll: true });
+    }
   }
 
   function toggle() {
-    if (!list.classList.contains('is-open')) open();
+    if (!list.classList.contains('is-open')) open(false);
     else close();
   }
 
@@ -919,7 +923,7 @@ function setupBankDropdown(containerId, selectEl) {
       li.setAttribute('aria-selected', li.dataset.bank === bankName ? 'true' : 'false');
     });
     close();
-    trigger.focus();
+    trigger.focus({ preventScroll: true });
     selectEl.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
@@ -964,7 +968,7 @@ function setupBankDropdown(containerId, selectEl) {
           if (li.previousElementSibling) li.previousElementSibling.focus();
         } else if (e.key === 'Escape') {
           close();
-          trigger.focus();
+          trigger.focus({ preventScroll: true });
         }
       });
 
@@ -976,7 +980,7 @@ function setupBankDropdown(containerId, selectEl) {
   trigger.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      open();
+      open(true);
     } else if (e.key === 'Escape') {
       close();
     }
