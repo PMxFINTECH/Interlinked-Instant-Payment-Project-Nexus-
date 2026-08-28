@@ -1108,13 +1108,6 @@ body.modal-open {
   }
 }
 
-.form-disclaimer {
-  margin: 20px 0 0;
-  font-size: 12px;
-  color: var(--text-muted);
-  max-width: 620px;
-}
-
 /* Mobile */
 
 @media (max-width: 720px) {
@@ -1769,8 +1762,8 @@ svg.sea-map {
   content: '';
   position: absolute;
   top: 50%;
-  left: 13px;
-  right: 13px;
+  left: 10%;
+  right: 10%;
   height: 2px;
   background: var(--panel-border);
   transform: translateY(-50%);
@@ -1780,15 +1773,16 @@ svg.sea-map {
 .progress-fill {
   top: 50%;
   bottom: auto;
-  left: 13px;
+  left: 10%;
   right: auto;
   height: 2px;
   transform: translateY(-50%);
   background: linear-gradient(90deg, var(--accent), var(--success));
-  /* width is still set inline by app.js's existing
-     `${(index / (STATION_LABELS.length - 1)) * 100}%` calculation —
-     that math already assumes a 0–100% span between the first and
-     last node, which is exactly what the 13px inset above matches. */
+  /* width is set inline by app.js as
+     `${(index / (STATION_LABELS.length - 1)) * 80}%` — the 80% span
+     matches the 10%–90% gap above, so the fill's right edge lands
+     exactly on each dot's true center (dots sit at 10/30/50/70/90%,
+     since each is centered in its own 1/5-wide flex slot). */
 }
 
 .progress-fill.blocked {
