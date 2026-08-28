@@ -277,20 +277,26 @@ const successPanelEls = buildSuccessPanel();
 let lastReceiptData = null;
 
 function showSuccessPanel(data) {
-  const { recipientName, countryName, amountText } = data;
+  const { recipientName, countryName, amountText, msgId, createdAt } = data;
   successPanelEls.amount.textContent = amountText;
 
   successPanelEls.body.innerHTML = '';
+  // Reference + timestamp reuse the same msgId/createdAt already generated
+  // for the PDF receipt (see downloadReceipt below) so the number on screen
+  // always matches the number printed on the downloaded copy.
   const rows = [
     ['Recipient', recipientName],
     ['Country', countryName],
+    ['Reference', msgId || '—', true],
+    ['Date', formatReceiptDateTime(createdAt), true],
   ];
-  rows.forEach(([label, value]) => {
+  rows.forEach(([label, value, mono]) => {
     const p = document.createElement('p');
     const labelSpan = document.createElement('span');
     labelSpan.className = 'label';
     labelSpan.textContent = label;
     const valueSpan = document.createElement('span');
+    if (mono) valueSpan.className = 'success-panel-mono';
     valueSpan.textContent = value;
     p.appendChild(labelSpan);
     p.appendChild(valueSpan);
