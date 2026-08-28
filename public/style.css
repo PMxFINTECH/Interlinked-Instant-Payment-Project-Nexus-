@@ -1737,3 +1737,79 @@ svg.sea-map {
     animation: none;
   }
 }
+
+/* ============================================================
+   Feature: Processing flow — visual restyle (round 2, per review)
+   Two changes, both overriding rules already defined above by
+   source order (same selectors, same specificity) — no DOM or JS
+   change needed, same markup/classes app.js already drives:
+
+   1. Submit row stacks (button, then status line below it) instead
+      of sitting side by side.
+   2. Progress bar swaps the solid pill track for a thin connecting
+      line + glowing circular nodes, matching the approved prototype
+      direction — lighter and closer to the "glowing outlines"
+      premium-fintech reference than a filled bar.
+   ============================================================ */
+
+.submit-row {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.progress-track {
+  height: 26px;
+  border-radius: 0;
+  background: none;
+  overflow: visible;
+}
+
+.progress-track::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 13px;
+  right: 13px;
+  height: 2px;
+  background: var(--panel-border);
+  transform: translateY(-50%);
+  z-index: 0;
+}
+
+.progress-fill {
+  top: 50%;
+  bottom: auto;
+  left: 13px;
+  right: auto;
+  height: 2px;
+  transform: translateY(-50%);
+  background: linear-gradient(90deg, var(--accent), var(--success));
+  /* width is still set inline by app.js's existing
+     `${(index / (STATION_LABELS.length - 1)) * 100}%` calculation —
+     that math already assumes a 0–100% span between the first and
+     last node, which is exactly what the 13px inset above matches. */
+}
+
+.progress-fill.blocked {
+  background: var(--danger);
+}
+
+.progress-dot {
+  box-shadow: none;
+  transition: background 0.3s ease, border-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.progress-dot.done {
+  box-shadow: 0 0 0 5px rgba(15, 113, 240, 0.18);
+}
+
+.progress-dot.blocked {
+  box-shadow: 0 0 0 5px rgba(242, 89, 107, 0.18);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress-dot {
+    transition: none;
+  }
+}
