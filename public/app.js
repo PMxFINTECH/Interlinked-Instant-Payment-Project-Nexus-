@@ -342,6 +342,15 @@ function downloadReceipt(data) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
 
+  // Embed a Unicode-capable font (see receipt-font.js) so names with
+  // characters outside WinAnsi/Latin-1 — e.g. Vietnamese "Đinh Kim Ngô" —
+  // render correctly instead of dropping glyphs or mis-measuring width.
+  if (window.registerReceiptFont) {
+    window.registerReceiptFont(doc);
+  } else {
+    console.error('registerReceiptFont not found — is receipt-font.js loaded before app.js?');
+  }
+
   const pageWidth = 210;
   const margin = 18;
   const contentWidth = pageWidth - margin * 2;
@@ -463,7 +472,10 @@ function downloadReceipt(data) {
     doc.setTextColor(...amber);
     doc.text(title.toUpperCase(), x + 5, y + 7);
 
-    doc.setFont('helvetica', 'bold');
+    // Names come from Faker's locale-specific generators (fakerVI for
+    // Vietnam, etc.) and can contain characters outside WinAnsi/Latin-1,
+    // so this field uses the embedded Unicode font rather than helvetica.
+    doc.setFont(window.registerReceiptFont ? 'InterVN' : 'helvetica', 'bold');
     doc.setFontSize(11.5);
     doc.setTextColor(...ink);
     doc.text(name || '—', x + 5, y + 14);
