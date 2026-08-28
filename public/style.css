@@ -947,7 +947,12 @@ body.modal-open {
 }
 
 /* Quieter than #submitBtn on purpose — the money's already sent, this is
-   a follow-up action, not the primary call to action. */
+   a follow-up action, not the primary call to action. Hover uses the same
+   blue accent language as every other interactive control in the app
+   (#submitBtn, .modal-btn-secondary, .custom-select-trigger) rather than
+   amber — amber is reserved elsewhere for the "recipient" indicator
+   (.fx-row.is-recipient, .country-piece.is-recipient, the PDF's recipient
+   card), which isn't what this hover state means. */
 .success-panel-download-btn {
   display: inline-flex;
   align-items: center;
@@ -965,9 +970,9 @@ body.modal-open {
 }
 
 .success-panel-download-btn:hover:not(:disabled) {
-  border-color: var(--amber);
-  color: var(--amber);
-  background: rgba(242, 169, 59, 0.08);
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(15, 113, 240, 0.08);
 }
 
 .success-panel-download-btn:disabled {
