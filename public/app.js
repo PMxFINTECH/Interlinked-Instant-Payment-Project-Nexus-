@@ -1537,7 +1537,7 @@ function lightStation(index, blocked = false) {
   const statusClass = blocked ? 'blocked' : 'done';
   document.querySelector(`.progress-dot[data-station="${index}"]`).classList.add(statusClass);
   document.querySelector(`.progress-label[data-station="${index}"]`).classList.add(statusClass);
-  progressFill.style.width = `${(index / (STATION_LABELS.length - 1)) * 100}%`;
+  progressFill.style.width = `${(index / (STATION_LABELS.length - 1)) * 80}%`;
   if (blocked) progressFill.classList.add('blocked');
 }
 
