@@ -24,6 +24,22 @@ const CURRENCY_DECIMALS = {
   VND: 0,
 };
 
+// Feature: Amount — hard ceiling on what can be typed into the sender
+// amount field. Two independent reasons, not just one:
+//   1. Realism — every real IPS interlinking scheme enforces a
+//      per-transaction ceiling (Nexus corridors are typically capped in
+//      the low hundreds-of-thousands-USD-equivalent range), so an
+//      unbounded amount field isn't just a UI nicety, it's out of
+//      character for what this app is simulating.
+//   2. Correctness — JS numbers are only exact up to 2^53
+//      (Number.MAX_SAFE_INTEGER ≈ 9.007e15). An amount typed past that
+//      doesn't just look silly, it silently corrupts the FX multiply
+//      server-side (this is what produced "RM 383.83" for a
+//      1,000,000,000,000,000,000,000 SGD input — the float lost
+//      precision before the conversion ever ran). Capping well under
+//      that threshold keeps every downstream calculation exact.
+const MAX_AMOUNT = 1000000;
+
 // Feature: Receipt — each country's real-world domestic instant payment
 // rail name, shown on the generated PDF for context (e.g. "DuitNow").
 const RAIL_NAMES = {
@@ -1011,6 +1027,29 @@ function getRawAmountValue() {
   return Number.isFinite(numeric) ? numeric : 0;
 }
 
+// Feature: Amount — if the typed value is over MAX_AMOUNT, snap it back
+// down to MAX_AMOUNT and briefly flash the field's existing red
+// input-error style (same class validateRecipientPhone already uses) as
+// feedback. Runs on every keystroke, so the field can never actually hold
+// an out-of-range value long enough to reach submit, get formatted for
+// display, or get sent to the FX endpoint — the earlier bug wasn't really
+// about "what happens at submit", it was that the value became invalid
+// the moment it was typed.
+let amountCapFlashTimer = null;
+
+function clampAmountToMax() {
+  const raw = getRawAmountValue();
+  if (raw <= MAX_AMOUNT) return;
+
+  amountInput.value = formatAmountInputValue(String(MAX_AMOUNT));
+
+  amountInput.classList.add('input-error');
+  clearTimeout(amountCapFlashTimer);
+  amountCapFlashTimer = setTimeout(() => {
+    amountInput.classList.remove('input-error');
+  }, 500);
+}
+
 function formatCurrency(value, currencyCode) {
   const symbol = CURRENCY_SYMBOLS[currencyCode] || currencyCode;
   const decimals = CURRENCY_DECIMALS[currencyCode] ?? 2;
@@ -1061,6 +1100,7 @@ function formatRate(rate) {
 
 amountInput.addEventListener('input', () => {
   amountInput.value = formatAmountInputValue(amountInput.value);
+  clampAmountToMax();
   debouncedUpdateConvertedAmount();
 });
 
@@ -1429,6 +1469,16 @@ form.addEventListener('submit', async (e) => {
   const rawAmount = getRawAmountValue();
   if (!rawAmount || rawAmount <= 0) {
     submitHint.textContent = 'Enter a valid amount before sending.';
+    submitHint.classList.add('error');
+    amountInput.focus();
+    return;
+  }
+
+  // Backstop for the same MAX_AMOUNT ceiling clampAmountToMax() enforces
+  // live while typing — covers paste, browser autofill, or any other path
+  // that sets amountInput.value without firing the 'input' event.
+  if (rawAmount > MAX_AMOUNT) {
+    submitHint.textContent = `Enter an amount up to ${MAX_AMOUNT.toLocaleString('en-US')}.`;
     submitHint.classList.add('error');
     amountInput.focus();
     return;
