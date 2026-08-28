@@ -52,6 +52,10 @@ const recipientPreviewBank = document.getElementById('recipientPreviewBank');
 
 const form = document.getElementById('payment-form');
 const submitBtn = document.getElementById('submitBtn');
+// Feature: Processing flow — the button now has a spinner + a dedicated
+// label span (see index.html) instead of being driven by submitBtn.textContent
+// directly, so the spinner and the text can be shown/hidden independently.
+const submitBtnLabel = document.getElementById('submitBtnLabel');
 const submitHint = document.getElementById('submitHint');
 
 // UX restructure: the payment trace is now a fluid segmented pill progress
@@ -1356,12 +1360,52 @@ recipientPhoneInput.addEventListener('blur', () => {
   updateRecipientPreview();
 });
 
+// ---------- Feature: Processing flow ----------
+// Builds the button label + live status-line text for each of the five
+// stations, from the SAME response payload the progress bar itself is
+// choreographing through. Because /api/payment already returns compliance,
+// recipient, fx, and message data in one round trip, every step's text
+// describes the real, resolved outcome for that step — not a placeholder
+// guess — even though the reveal is paced client-side for legibility.
+function buildStepMeta(data, summary) {
+  const recipient = data.recipient || {};
+  const fx = data.fx || {};
+  const message = data.message || {};
+  const grpHdr = message.GrpHdr || {};
+  const rail = RAIL_NAMES[summary.recipientCountryCode] || 'the local rail';
+  const accountTail = recipient.accountId ? recipient.accountId.slice(-4) : '----';
+  const rate = fx.rate ? formatRate(fx.rate) : '—';
+
+  return [
+    {
+      button: 'Screening compliance…',
+      status: `Screening ${summary.senderName || 'sender'} against AML / CFT watchlists…`,
+    },
+    {
+      button: 'Resolving proxy…',
+      status: `Resolved to ${recipient.bankName || 'recipient bank'} •••${accountTail} via ${rail}.`,
+    },
+    {
+      button: 'Converting FX…',
+      status: `Converting ${fx.fromCurrency || summary.senderCurrency} → ${fx.toCurrency || ''} at 1 ${fx.fromCurrency || ''} = ${rate} ${fx.toCurrency || ''}.`,
+    },
+    {
+      button: 'Translating message…',
+      status: `Building ISO 20022 pacs.008 (${grpHdr.MsgId || 'message'}) for ${rail} settlement…`,
+    },
+    {
+      button: 'Settling…',
+      status: `Confirming settlement via ${rail} Nexus gateway…`,
+    },
+  ];
+}
+
 // ---------- Submit ----------
 
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
   submitHint.textContent = '';
-  submitHint.classList.remove('error');
+  submitHint.classList.remove('error', 'is-status');
 
   if (!validateRecipientPhone()) {
     submitHint.textContent = 'Fix the recipient phone number before sending.';
@@ -1420,7 +1464,12 @@ form.addEventListener('submit', async (e) => {
   };
 
   submitBtn.disabled = true;
-  submitBtn.textContent = 'Sending…';
+  // Feature: Processing flow — spinner + label now live inside the button
+  // together (see index.html / style.css), instead of the old plain
+  // submitBtn.textContent swap with no motion.
+  submitBtn.classList.remove('is-settled');
+  submitBtn.classList.add('is-loading');
+  submitBtnLabel.textContent = 'Sending…';
 
   resetTrace();
 
@@ -1455,7 +1504,8 @@ form.addEventListener('submit', async (e) => {
   }
 
   submitBtn.disabled = false;
-  submitBtn.textContent = 'Send payment';
+  submitBtn.classList.remove('is-loading', 'is-settled');
+  submitBtnLabel.textContent = 'Send payment';
 });
 
 function resetTrace() {
@@ -1479,9 +1529,26 @@ function lightStation(index, blocked = false) {
   if (blocked) progressFill.classList.add('blocked');
 }
 
+// Feature: Processing flow — advances the progress dot AND updates the
+// button label + status line in the same call, so the three pieces can
+// never show three different steps at once (the original bug: the button
+// said "Sending…" the entire time while the dots moved independently).
+function applyStep(index, stepMeta) {
+  lightStation(index);
+  if (!stepMeta) return;
+  submitBtnLabel.textContent = stepMeta[index].button;
+  submitHint.textContent = stepMeta[index].status;
+  submitHint.classList.remove('error');
+  submitHint.classList.add('is-status');
+}
+
 async function runBlockedTrace(data) {
   await wait(200);
   lightStation(0, true);
+
+  submitBtn.classList.remove('is-loading');
+  submitBtnLabel.textContent = 'Blocked';
+  submitHint.classList.remove('is-status');
 
   const reason = data.compliance?.reason || data.reason || 'Sender failed sanctions screening.';
   submitHint.textContent = `Payment blocked at compliance screening — ${reason}`;
@@ -1489,20 +1556,36 @@ async function runBlockedTrace(data) {
 }
 
 async function runCompletedTrace(data) {
+  const stepMeta = pendingPaymentSummary ? buildStepMeta(data, pendingPaymentSummary) : null;
+
   await wait(200);
-  lightStation(0);
+  applyStep(0, stepMeta);
 
   await wait(500);
-  lightStation(1);
+  applyStep(1, stepMeta);
 
   await wait(500);
-  lightStation(2);
+  applyStep(2, stepMeta);
 
   await wait(500);
-  lightStation(3);
+  applyStep(3, stepMeta);
 
   await wait(500);
-  lightStation(4);
+  applyStep(4, stepMeta);
+
+  // Feature: Processing flow — the "Settled" dot's fill (0.3s) and the
+  // progress bar's own width transition (0.6s, see #progressFill in
+  // style.css) are still animating the instant applyStep(4) returns.
+  // Waiting out the longer of the two before revealing the success panel
+  // is the actual fix for the "gray circle next to a finished payment"
+  // bug — the class was always applied in time, the paint just wasn't.
+  await wait(650);
+
+  submitBtn.classList.remove('is-loading');
+  submitBtn.classList.add('is-settled');
+  submitBtnLabel.textContent = 'Payment sent';
+  submitHint.classList.remove('is-status');
+  submitHint.textContent = '';
 
   if (pendingPaymentSummary) {
     const msg = data.message || {};
