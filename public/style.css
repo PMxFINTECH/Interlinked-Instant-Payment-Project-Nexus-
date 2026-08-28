@@ -1807,3 +1807,88 @@ svg.sea-map {
     transition: none;
   }
 }
+
+/* ============================================================
+   Feature: Processing flow — status line restyle (round 3, per
+   review). Same #submitHint element and classes app.js already
+   drives (.is-status / .error) — no DOM or JS change. Turns the
+   bare sentence into a small status chip: body font instead of
+   mono (this is a status sentence, not a data value, so it
+   follows the Inter/body half of the existing two-font system,
+   not the Plex Mono half reserved for amounts/rates), a pill
+   container so it reads as a status indicator rather than a log
+   line, and a colored dot that pulses only while live (.is-status)
+   and holds solid on error. :empty collapses it back to zero
+   space for the idle state, same as the plain-text version did.
+   ============================================================ */
+
+.submit-hint {
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 12.5px;
+  line-height: 1;
+  color: var(--text-muted);
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px 7px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--panel-border);
+}
+
+.submit-hint:empty {
+  display: none;
+  padding: 0;
+  border: none;
+  background: none;
+}
+
+.submit-hint::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.submit-hint.is-status {
+  color: var(--text);
+  background: rgba(15, 113, 240, 0.08);
+  border-color: rgba(15, 113, 240, 0.25);
+}
+
+.submit-hint.is-status::before {
+  background: var(--accent);
+  animation: hint-pulse 1.4s ease-in-out infinite;
+}
+
+.submit-hint.error {
+  color: var(--danger);
+  background: rgba(242, 89, 107, 0.08);
+  border-color: rgba(242, 89, 107, 0.25);
+}
+
+.submit-hint.error::before {
+  background: var(--danger);
+  animation: none;
+}
+
+@keyframes hint-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.75);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .submit-hint.is-status::before {
+    animation: none;
+  }
+}
