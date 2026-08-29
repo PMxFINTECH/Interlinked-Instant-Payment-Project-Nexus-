@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="style.css?v=16" />
+<link rel="stylesheet" href="style.css?v=18" />
 </head>
 <body>
 
@@ -33,35 +33,35 @@
           <input type="text" id="senderName" name="senderName" placeholder="e.g. Alex Tan" required />
         </label>
 
-        <label class="field">
+        <div class="field">
           <span>Country</span>
           <div class="custom-select" id="senderCountryCustom">
             <select id="senderCountry" name="senderCountry" required class="native-select-hidden" aria-hidden="true" tabindex="-1">
               <option value="" disabled selected>Select country</option>
             </select>
-            <button type="button" class="custom-select-trigger" aria-haspopup="listbox" aria-expanded="false">
+            <button type="button" class="custom-select-trigger" aria-haspopup="listbox" aria-expanded="false" aria-label="Country">
               <span class="custom-select-flag"></span>
               <span class="custom-select-label">Select country</span>
               <span class="custom-select-caret">▾</span>
             </button>
             <ul class="custom-select-list" role="listbox" hidden></ul>
           </div>
-        </label>
+        </div>
 
-        <label class="field">
+        <div class="field">
           <span>Bank</span>
           <div class="custom-select" id="senderBankCustom">
             <select id="senderBank" name="senderBank" required disabled class="native-select-hidden" aria-hidden="true" tabindex="-1">
               <option value="" disabled selected>Select country first</option>
             </select>
-            <button type="button" class="custom-select-trigger" aria-haspopup="listbox" aria-expanded="false" disabled>
+            <button type="button" class="custom-select-trigger" aria-haspopup="listbox" aria-expanded="false" aria-label="Bank" disabled>
               <span class="custom-select-chip-slot"></span>
               <span class="custom-select-label">Select country first</span>
               <span class="custom-select-caret">▾</span>
             </button>
             <ul class="custom-select-list" role="listbox" hidden></ul>
           </div>
-        </label>
+        </div>
 
         <label class="field">
           <span>Amount</span>
@@ -91,20 +91,20 @@
       <div class="hub-column" data-role="recipient">
         <p class="column-label">Recipient</p>
 
-        <label class="field">
+        <div class="field">
           <span>Country</span>
           <div class="custom-select" id="recipientCountryCustom">
             <select id="recipientCountry" name="recipientCountry" required class="native-select-hidden" aria-hidden="true" tabindex="-1">
               <option value="" disabled selected>Select country</option>
             </select>
-            <button type="button" class="custom-select-trigger" aria-haspopup="listbox" aria-expanded="false">
+            <button type="button" class="custom-select-trigger" aria-haspopup="listbox" aria-expanded="false" aria-label="Country">
               <span class="custom-select-flag"></span>
               <span class="custom-select-label">Select country</span>
               <span class="custom-select-caret">▾</span>
             </button>
             <ul class="custom-select-list" role="listbox" hidden></ul>
           </div>
-        </label>
+        </div>
 
         <label class="field">
           <span>Recipient phone number</span>
